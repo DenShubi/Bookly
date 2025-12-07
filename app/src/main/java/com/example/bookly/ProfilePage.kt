@@ -17,6 +17,15 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.bookly.supabase.UserRepository
+import com.example.bookly.supabase.supabase
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -50,6 +59,17 @@ fun ProfileScreen(navController: NavController) {
             )
         }
     ) { paddingValues ->
+        val coroutineScope = rememberCoroutineScope()
+        var username by remember { mutableStateOf<String?>(null) }
+        var email by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(Unit) {
+            // Use supabase shim current user
+            val user = supabase.auth.currentUserOrNull()
+            username = user?.userMetadata?.get("username")
+            email = user?.email
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -60,19 +80,26 @@ fun ProfileScreen(navController: NavController) {
         ) {
             ProfileImageSection()
             Spacer(modifier = Modifier.height(32.dp))
-            ProfileDetailsSection()
+            ProfileDetailsSection(username = username, email = email)
             Spacer(modifier = Modifier.height(32.dp))
             SettingsSection()
             Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { /* Aksi Edit Akun */ },
+                onClick = {
+                    coroutineScope.launch {
+                        UserRepository.signOut()
+                        navController.navigate("login") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    }
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(50.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57))
             ) {
-                Text("Edit Akun", color = Color.White)
+                Text("Logout", color = Color.White)
             }
         }
     }
@@ -105,7 +132,7 @@ fun ProfileImageSection() {
 }
 
 @Composable
-fun ProfileDetailsSection() {
+fun ProfileDetailsSection(username: String? = null, email: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Detail Profil", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(8.dp))
@@ -116,9 +143,9 @@ fun ProfileDetailsSection() {
             border = BorderStroke(1.dp, Color.LightGray)
         ) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                InfoRow(icon = Icons.Default.Email, label = "Email", value = "jolybeer@gmail.com")
+                InfoRow(icon = Icons.Default.Email, label = "Email", value = email ?: "-")
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                InfoRow(icon = Icons.Default.Phone, label = "No Telp", value = "082247283745")
+                InfoRow(icon = Icons.Default.Person, label = "Username", value = username ?: "-")
             }
         }
     }

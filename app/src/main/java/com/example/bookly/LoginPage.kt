@@ -7,6 +7,10 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.lifecycle.viewmodel.compose.viewModel
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.bookly.supabase.supabase
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -93,9 +97,25 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
+        val coroutineScope = rememberCoroutineScope()
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
         Button(
             onClick = {
-                navController.navigate("profile")
+                coroutineScope.launch {
+                    // Use supabase shim auth.signInWith
+                    val result = supabase.auth.signInWith {
+                        email = email
+                        password = password
+                    }
+                    if (result.user != null) {
+                        navController.navigate("profile") {
+                            popUpTo("login") { inclusive = true }
+                        }
+                    } else {
+                        errorMessage = "Login failed"
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -107,6 +127,17 @@ fun LoginScreen(navController: NavController) {
                 text = stringResource(id = R.string.sign_in),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = { errorMessage = null },
+                confirmButton = {
+                    TextButton(onClick = { errorMessage = null }) { Text("OK") }
+                },
+                title = { Text("Login error") },
+                text = { Text(errorMessage ?: "Unknown error") }
             )
         }
 

@@ -7,6 +7,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
+import com.example.bookly.supabase.supabase
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -79,8 +82,8 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
+            value = password,
+            onValueChange = { password = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.password)) },
             singleLine = true,
@@ -101,8 +104,8 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.password_confirm)) },
             singleLine = true,
@@ -122,9 +125,32 @@ fun RegisterScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
+        val coroutineScope = rememberCoroutineScope()
+        var errorMessage by remember { mutableStateOf<String?>(null) }
+
         Button(
             onClick = {
-                navController.navigate("profile")
+                coroutineScope.launch {
+                    // Simple password confirmation check
+                    if (password != confirmPassword) {
+                        errorMessage = "Passwords do not match"
+                        return@launch
+                    }
+                    // Use supabase shim auth.signUpWith - store username in user_metadata
+                    val result = supabase.auth.signUpWith {
+                        email = email
+                        password = password
+                        data = mapOf("username" to username)
+                    }
+
+                    if (result.user != null) {
+                        navController.navigate("profile") {
+                            popUpTo("register") { inclusive = true }
+                        }
+                    } else {
+                        errorMessage = "Registration failed"
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -136,6 +162,17 @@ fun RegisterScreen(navController: NavController) {
                 text = stringResource(id = R.string.sign_up),
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold
+            )
+        }
+
+        if (errorMessage != null) {
+            AlertDialog(
+                onDismissRequest = { errorMessage = null },
+                confirmButton = {
+                    TextButton(onClick = { errorMessage = null }) { Text("OK") }
+                },
+                title = { Text("Register error") },
+                text = { Text(errorMessage ?: "Unknown error") }
             )
         }
 
