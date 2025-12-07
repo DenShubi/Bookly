@@ -27,10 +27,11 @@ import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun RegisterScreen(navController: NavController) {
-    var email by remember { mutableStateOf("") }
-    var username by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
+    // Renamed variables to avoid shadowing inside the builder lambda
+    var emailInput by remember { mutableStateOf("") }
+    var usernameInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
+    var confirmPasswordInput by remember { mutableStateOf("") }
 
     var passwordVisible by remember { mutableStateOf(false) }
 
@@ -60,8 +61,8 @@ fun RegisterScreen(navController: NavController) {
         )
 
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
+            value = emailInput,
+            onValueChange = { emailInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.email)) },
             singleLine = true,
@@ -71,8 +72,8 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = username,
-            onValueChange = { username = it },
+            value = usernameInput,
+            onValueChange = { usernameInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.username)) },
             singleLine = true,
@@ -82,8 +83,8 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = passwordInput,
+            onValueChange = { passwordInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.password)) },
             singleLine = true,
@@ -104,8 +105,8 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = confirmPassword,
-            onValueChange = { confirmPassword = it },
+            value = confirmPasswordInput,
+            onValueChange = { confirmPasswordInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.password_confirm)) },
             singleLine = true,
@@ -132,15 +133,16 @@ fun RegisterScreen(navController: NavController) {
             onClick = {
                 coroutineScope.launch {
                     // Simple password confirmation check
-                    if (password != confirmPassword) {
+                    if (passwordInput != confirmPasswordInput) {
                         errorMessage = "Passwords do not match"
                         return@launch
                     }
-                    // Use supabase shim auth.signUpWith - store username in user_metadata
+                    // Use supabase shim auth.signUpWith
                     val result = supabase.auth.signUpWith {
-                        email = email
-                        password = password
-                        data = mapOf("username" to username)
+                        // Explicit assignment: builder.email = localState.emailInput
+                        email = emailInput
+                        password = passwordInput
+                        data = mapOf("username" to usernameInput)
                     }
 
                     if (result.user != null) {

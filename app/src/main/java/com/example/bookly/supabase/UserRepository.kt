@@ -91,34 +91,46 @@ object UserRepository {
 
     suspend fun login(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            val loginUrl = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/token"
+            // 1. Add grant_type=password to the URL query parameters
+            val loginUrl = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/token?grant_type=password"
 
-            // Supabase token endpoint expects 'email' parameter for password grant
-            val form = "grant_type=password&email=${URLEncoder.encode(email, "UTF-8")}&password=${URLEncoder.encode(password, "UTF-8")}" 
+            // 2. Create a JSON Payload (Supabase expects JSON, not form-data)
+            val loginPayload = JSONObject()
+            loginPayload.put("email", email)
+            loginPayload.put("password", password)
+
             val conn = (URL(loginUrl).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
                 doOutput = true
-                setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+                // 3. Change Content-Type to application/json
+                setRequestProperty("Content-Type", "application/json; charset=utf-8")
                 setRequestProperty("Accept", "application/json")
                 setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
                 setRequestProperty("Authorization", "Bearer ${SupabaseClientProvider.SUPABASE_ANON_KEY}")
             }
 
-            // Ensure correct Content-Length for form body
-            val formBody = form
-            val formBytes = formBody.toByteArray(Charsets.UTF_8)
-            conn.setFixedLengthStreamingMode(formBytes.size)
-            if (DEBUG_LOG) Log.d("UserRepository", "POST $loginUrl body=$formBody headers=[Content-Type: application/x-www-form-urlencoded]")
+            // 4. Send the JSON body
+            val loginBody = loginPayload.toString()
+            val loginBytes = loginBody.toByteArray(Charsets.UTF_8)
+            conn.setFixedLengthStreamingMode(loginBytes.size)
+
+            if (DEBUG_LOG) {
+                Log.d("UserRepository", "POST $loginUrl body=$loginBody headers=[Content-Type: application/json]")
+            }
+
             conn.outputStream.use { os ->
-                os.write(formBytes)
+                os.write(loginBytes)
                 os.flush()
             }
 
+            // 5. Read Response
             val code = conn.responseCode
             val resp = BufferedReader(InputStreamReader(
                 if (code in 200..299) conn.inputStream else conn.errorStream
             )).use { it.readText() }
+
             if (DEBUG_LOG) Log.d("UserRepository", "login response code=$code body=$resp")
+            
             if (code !in 200..299) return@withContext Result.failure(Exception(resp))
 
             val json = JSONObject(resp)

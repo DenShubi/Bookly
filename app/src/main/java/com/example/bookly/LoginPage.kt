@@ -28,8 +28,9 @@ import androidx.navigation.compose.rememberNavController
 
 @Composable
 fun LoginScreen(navController: NavController) {
-    var email by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
+    // Renamed variables to avoid shadowing inside the builder lambda
+    var emailInput by remember { mutableStateOf("") }
+    var passwordInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
 
     Column(
@@ -58,8 +59,8 @@ fun LoginScreen(navController: NavController) {
         )
 
         OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
+            value = emailInput,
+            onValueChange = { emailInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.email)) },
             singleLine = true,
@@ -69,8 +70,8 @@ fun LoginScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
+            value = passwordInput,
+            onValueChange = { passwordInput = it },
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.password)) },
             singleLine = true,
@@ -105,8 +106,9 @@ fun LoginScreen(navController: NavController) {
                 coroutineScope.launch {
                     // Use supabase shim auth.signInWith
                     val result = supabase.auth.signInWith {
-                        email = email
-                        password = password
+                        // Explicit assignment: builder.email = localState.emailInput
+                        email = emailInput
+                        password = passwordInput
                     }
                     if (result.user != null) {
                         navController.navigate("profile") {
