@@ -1,5 +1,7 @@
+
 package com.example.bookly
 
+import android.util.Patterns
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,10 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.lifecycle.viewmodel.compose.viewModel
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
-import com.example.bookly.supabase.supabase
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,13 +24,16 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.bookly.supabase.supabase
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(navController: NavController) {
-    // Renamed variables to avoid shadowing inside the builder lambda
     var emailInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -98,24 +100,38 @@ fun LoginScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(8.dp))
 
-        val coroutineScope = rememberCoroutineScope()
-        var errorMessage by remember { mutableStateOf<String?>(null) }
-
         Button(
             onClick = {
+                // Validation logic
+                if (!Patterns.EMAIL_ADDRESS.matcher(emailInput).matches()) {
+                    errorMessage = "Format email tidak valid"
+                    return@Button
+                }
+                if (passwordInput.length < 6) {
+                    errorMessage = "Password minimal 6 karakter"
+                    return@Button
+                }
+
                 coroutineScope.launch {
-                    // Use supabase shim auth.signInWith
-                    val result = supabase.auth.signInWith {
-                        // Explicit assignment: builder.email = localState.emailInput
-                        email = emailInput
-                        password = passwordInput
-                    }
-                    if (result.user != null) {
-                        navController.navigate("profile") {
-                            popUpTo("login") { inclusive = true }
+                    try {
+                        val result = supabase.auth.signInWith {
+                            email = emailInput
+                            password = passwordInput
                         }
-                    } else {
-                        errorMessage = "Login failed"
+                        //This will only be reached on success
+                        if (result.user != null) {
+                            navController.navigate("katalog_buku") {
+                                popUpTo("login") { inclusive = true }
+                            }
+                        } else {
+                            errorMessage = "Email atau password salah"
+                        }
+                    } catch (e: Exception) {
+                        if (e.message?.contains("Invalid login credentials") == true) {
+                            errorMessage = "Email atau password salah"
+                        } else {
+                            errorMessage = e.message ?: "Login gagal"
+                        }
                     }
                 }
             },
@@ -138,16 +154,14 @@ fun LoginScreen(navController: NavController) {
                 confirmButton = {
                     TextButton(onClick = { errorMessage = null }) { Text("OK") }
                 },
-                title = { Text("Login error") },
-                text = { Text(errorMessage ?: "Unknown error") }
+                title = { Text("Login Gagal") },
+                text = { Text(errorMessage ?: "Terjadi kesalahan") }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        TextButton(onClick = {
-            navController.navigate("register")
-        }) {
+        TextButton(onClick = { navController.navigate("register") }) {
             Text(
                 text = stringResource(id = R.string.register),
                 fontWeight = FontWeight.Bold
@@ -158,7 +172,7 @@ fun LoginScreen(navController: NavController) {
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun LoginScreenPreview() {
     LoginScreen(navController = rememberNavController())

@@ -39,7 +39,6 @@ android {
         compose = true
     }
 }
-
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -61,6 +60,7 @@ dependencies {
     implementation(libs.androidx.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
     implementation(platform("io.github.jan-tennert.supabase:bom:3.2.6"))
+    implementation("io.github.jan-tennert.supabase:auth-kt")
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.ktor:ktor-client-android:3.3.3")
 }

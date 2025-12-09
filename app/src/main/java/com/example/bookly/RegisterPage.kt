@@ -1,5 +1,7 @@
+
 package com.example.bookly
 
+import android.util.Patterns
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -7,9 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
-import com.example.bookly.supabase.supabase
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -24,16 +24,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.bookly.supabase.supabase
+import io.github.jan.supabase.exceptions.RestException
+import kotlinx.coroutines.launch
 
 @Composable
 fun RegisterScreen(navController: NavController) {
-    // Renamed variables to avoid shadowing inside the builder lambda
     var emailInput by remember { mutableStateOf("") }
     var usernameInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var confirmPasswordInput by remember { mutableStateOf("") }
-
     var passwordVisible by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    var showSuccessDialog by remember { mutableStateOf(false) }
+    val coroutineScope = rememberCoroutineScope()
 
     Column(
         modifier = Modifier
@@ -126,31 +130,36 @@ fun RegisterScreen(navController: NavController) {
 
         Spacer(modifier = Modifier.height(32.dp))
 
-        val coroutineScope = rememberCoroutineScope()
-        var errorMessage by remember { mutableStateOf<String?>(null) }
-
         Button(
             onClick = {
-                coroutineScope.launch {
-                    // Simple password confirmation check
-                    if (passwordInput != confirmPasswordInput) {
-                        errorMessage = "Passwords do not match"
-                        return@launch
-                    }
-                    // Use supabase shim auth.signUpWith
-                    val result = supabase.auth.signUpWith {
-                        // Explicit assignment: builder.email = localState.emailInput
-                        email = emailInput
-                        password = passwordInput
-                        data = mapOf("username" to usernameInput)
-                    }
+                // Validation logic
+                if (!Patterns.EMAIL_ADDRESS.matcher(emailInput).matches()) {
+                    errorMessage = "Format email tidak valid"
+                    return@Button
+                }
+                if (usernameInput.isBlank()) {
+                    errorMessage = "Username tidak boleh kosong"
+                    return@Button
+                }
+                if (passwordInput.length < 6) {
+                    errorMessage = "Password minimal 6 karakter"
+                    return@Button
+                }
+                if (passwordInput != confirmPasswordInput) {
+                    errorMessage = "Konfirmasi password tidak cocok"
+                    return@Button
+                }
 
-                    if (result.user != null) {
-                        navController.navigate("profile") {
-                            popUpTo("register") { inclusive = true }
+                coroutineScope.launch {
+                    try {
+                        supabase.auth.signUpWith {
+                            email = emailInput
+                            password = passwordInput
+                            data = mapOf("username" to usernameInput)
                         }
-                    } else {
-                        errorMessage = "Registration failed"
+                        showSuccessDialog = true
+                    } catch (e: RestException) {
+                        errorMessage = e.message ?: "Registrasi gagal"
                     }
                 }
             },
@@ -173,18 +182,30 @@ fun RegisterScreen(navController: NavController) {
                 confirmButton = {
                     TextButton(onClick = { errorMessage = null }) { Text("OK") }
                 },
-                title = { Text("Register error") },
-                text = { Text(errorMessage ?: "Unknown error") }
+                title = { Text("Registrasi Gagal") },
+                text = { Text(errorMessage ?: "Terjadi kesalahan") }
+            )
+        }
+
+        if (showSuccessDialog) {
+            AlertDialog(
+                onDismissRequest = { showSuccessDialog = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        showSuccessDialog = false
+                        navController.navigate("login")
+                    }) { Text("Login") }
+                },
+                title = { Text("Registrasi Berhasil") },
+                text = { Text("Akun Anda berhasil dibuat. Silakan login.") }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        TextButton(onClick = {
-            navController.navigate("login")
-        }) {
+        TextButton(onClick = { navController.navigate("login") }) {
             Text(
-                text = "Sudah punya akun? " + stringResource(id = R.string.register),
+                text = "Sudah punya akun? " + stringResource(id = R.string.login),
                 fontWeight = FontWeight.Bold
             )
         }
@@ -193,7 +214,7 @@ fun RegisterScreen(navController: NavController) {
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun RegisterScreenPreview() {
     RegisterScreen(navController = rememberNavController())

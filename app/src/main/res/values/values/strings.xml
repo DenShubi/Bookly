@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Projek Login</string>
+    <string name="app_name">Bookly</string>
     <string name="login">Login</string>
     <string name="welcome_back">Selamat Datang Kembali!</string>
     <string name="user_regist">Daftar Pengguna</string>
