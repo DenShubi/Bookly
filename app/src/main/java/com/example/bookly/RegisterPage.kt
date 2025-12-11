@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun RegisterScreen(navController: NavController) {
     var emailInput by remember { mutableStateOf("") }
-    var usernameInput by remember { mutableStateOf("") }
+    var nameInput by remember { mutableStateOf("") }
     var passwordInput by remember { mutableStateOf("") }
     var confirmPasswordInput by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
@@ -76,10 +76,10 @@ fun RegisterScreen(navController: NavController) {
         Spacer(modifier = Modifier.height(16.dp))
 
         OutlinedTextField(
-            value = usernameInput,
-            onValueChange = { usernameInput = it },
+            value = nameInput,
+            onValueChange = { nameInput = it },
             modifier = Modifier.fillMaxWidth(),
-            label = { Text(stringResource(id = R.string.username)) },
+            label = { Text("Nama") },
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
         )
@@ -137,8 +137,8 @@ fun RegisterScreen(navController: NavController) {
                     errorMessage = "Format email tidak valid"
                     return@Button
                 }
-                if (usernameInput.isBlank()) {
-                    errorMessage = "Username tidak boleh kosong"
+                if (nameInput.isBlank()) {
+                    errorMessage = "Nama tidak boleh kosong"
                     return@Button
                 }
                 if (passwordInput.length < 6) {
@@ -155,7 +155,7 @@ fun RegisterScreen(navController: NavController) {
                         supabase.auth.signUpWith {
                             email = emailInput
                             password = passwordInput
-                            data = mapOf("username" to usernameInput)
+                            data = mapOf("full_name" to nameInput)
                         }
                         showSuccessDialog = true
                     } catch (e: RestException) {

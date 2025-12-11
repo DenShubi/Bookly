@@ -60,13 +60,13 @@ fun ProfileScreen(navController: NavController) {
         }
     ) { paddingValues ->
         val coroutineScope = rememberCoroutineScope()
-        var username by remember { mutableStateOf<String?>(null) }
+        var fullName by remember { mutableStateOf<String?>(null) }
         var email by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
             // Use supabase shim current user
             val user = supabase.auth.currentUserOrNull()
-            username = user?.userMetadata?.get("username")
+            fullName = user?.userMetadata?.get("full_name")
             email = user?.email
         }
 
@@ -80,7 +80,7 @@ fun ProfileScreen(navController: NavController) {
         ) {
             ProfileImageSection()
             Spacer(modifier = Modifier.height(32.dp))
-            ProfileDetailsSection(username = username, email = email)
+            ProfileDetailsSection(fullName = fullName, email = email)
             Spacer(modifier = Modifier.height(32.dp))
             SettingsSection()
             Spacer(modifier = Modifier.weight(1f))
@@ -132,7 +132,7 @@ fun ProfileImageSection() {
 }
 
 @Composable
-fun ProfileDetailsSection(username: String? = null, email: String? = null) {
+fun ProfileDetailsSection(fullName: String? = null, email: String? = null) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Detail Profil", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(8.dp))
@@ -145,7 +145,7 @@ fun ProfileDetailsSection(username: String? = null, email: String? = null) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 InfoRow(icon = Icons.Default.Email, label = "Email", value = email ?: "-")
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                InfoRow(icon = Icons.Default.Person, label = "Username", value = username ?: "-")
+                InfoRow(icon = Icons.Default.Person, label = "Nama", value = fullName ?: "-")
             }
         }
     }

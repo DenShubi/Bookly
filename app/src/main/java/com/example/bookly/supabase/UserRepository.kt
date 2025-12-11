@@ -13,14 +13,14 @@ import java.net.HttpURLConnection
 import java.net.URLEncoder
 import java.net.URL
 
-data class UserProfile(val username: String?, val email: String?)
+data class UserProfile(val fullName: String?, val email: String?)
 
 object UserRepository {
 
     private const val DEBUG_LOG = true
 
 
-    suspend fun register(username: String, email: String, password: String): Result<Unit> =
+    suspend fun register(fullName: String, email: String, password: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
                 // Sign up user
@@ -28,6 +28,11 @@ object UserRepository {
                 val signupPayload = JSONObject()
                 signupPayload.put("email", email)
                 signupPayload.put("password", password)
+
+                // Add full_name to user_metadata
+                val userMetadata = JSONObject()
+                userMetadata.put("full_name", fullName)
+                signupPayload.put("data", userMetadata)
 
                 val signupConn = (URL(signupUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
@@ -153,11 +158,11 @@ object UserRepository {
             val email = userInfo.optString("email", null)
             val userId = userInfo.optString("id", null)
 
-            var username: String? = null
+            var fullName: String? = null
 
             // Try fetching from users table by id
             if (!userId.isNullOrBlank()) {
-                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=username,email&id=eq.$userId"
+                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=full_name,email&id=eq.$userId"
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
@@ -172,14 +177,14 @@ object UserRepository {
                     val arr = JSONArray(resp)
                     if (arr.length() > 0) {
                         val obj = arr.getJSONObject(0)
-                        username = obj.optString("username", null)
+                        fullName = obj.optString("full_name", null)
                     }
                 }
             }
 
             // Fallback: try lookup by email
-            if (username == null && !email.isNullOrBlank()) {
-                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=username,email&email=eq.${URLEncoder.encode(email, "UTF-8") }"
+            if (fullName == null && !email.isNullOrBlank()) {
+                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=full_name,email&email=eq.${URLEncoder.encode(email, "UTF-8") }"
                 val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                     requestMethod = "GET"
                     setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
@@ -194,12 +199,12 @@ object UserRepository {
                     val arr = JSONArray(resp)
                     if (arr.length() > 0) {
                         val obj = arr.getJSONObject(0)
-                        username = obj.optString("username", null)
+                        fullName = obj.optString("full_name", null)
                     }
                 }
             }
 
-            Result.success(UserProfile(username = username, email = email))
+            Result.success(UserProfile(fullName = fullName, email = email))
         } catch (t: Throwable) {
             Result.failure(t)
         }
