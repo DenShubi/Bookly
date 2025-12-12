@@ -38,6 +38,12 @@ fun RegisterScreen(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var showSuccessDialog by remember { mutableStateOf(false) }
     val coroutineScope = rememberCoroutineScope()
+    val isFormValid by derivedStateOf {
+        emailInput.isNotBlank() &&
+                nameInput.isNotBlank() &&
+                passwordInput.isNotBlank() &&
+                confirmPasswordInput.isNotBlank()
+    }
 
     Column(
         modifier = Modifier
@@ -163,11 +169,16 @@ fun RegisterScreen(navController: NavController) {
                     }
                 }
             },
+            enabled = isFormValid,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57))
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2E8B57),
+                disabledContainerColor = Color(0xFF9CCC9C),   // optional
+                disabledContentColor = Color.White.copy(alpha = 0.5f)
+            )
         ) {
             Text(
                 text = stringResource(id = R.string.sign_up),

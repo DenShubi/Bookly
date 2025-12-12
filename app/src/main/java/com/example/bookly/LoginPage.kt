@@ -34,6 +34,11 @@ fun LoginScreen(navController: NavController) {
     var passwordVisible by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
+    val isFormValid by derivedStateOf {
+        emailInput.isNotBlank() &&
+                passwordInput.isNotBlank()
+    }
+
 
     Column(
         modifier = Modifier
@@ -135,11 +140,16 @@ fun LoginScreen(navController: NavController) {
                     }
                 }
             },
+            enabled = isFormValid,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
             shape = RoundedCornerShape(12.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57))
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFF2E8B57),
+                disabledContainerColor = Color(0xFF9CCC9C),
+                disabledContentColor = Color.White.copy(alpha = 0.5f)
+            )
         ) {
             Text(
                 text = stringResource(id = R.string.sign_in),
