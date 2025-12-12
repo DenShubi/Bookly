@@ -26,6 +26,7 @@ import kotlinx.coroutines.launch
 import androidx.compose.runtime.rememberCoroutineScope
 import com.example.bookly.supabase.UserRepository
 import com.example.bookly.supabase.supabase
+import com.example.bookly.ui.BottomNavigationBar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +49,7 @@ fun ProfileScreen(navController: NavController) {
             TopAppBar(
                 title = { Text("Edit Profile") },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigate("login") }) {
+                    IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
                 },
@@ -57,17 +58,29 @@ fun ProfileScreen(navController: NavController) {
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 )
             )
-        }
+        },
+        bottomBar = { BottomNavigationBar(navController = navController, selected = "profile") }
     ) { paddingValues ->
         val coroutineScope = rememberCoroutineScope()
         var fullName by remember { mutableStateOf<String?>(null) }
         var email by remember { mutableStateOf<String?>(null) }
+        var showLogoutDialog by remember { mutableStateOf(false) }
+        var isLoading by remember { mutableStateOf(true) }
 
         LaunchedEffect(Unit) {
-            // Use supabase shim current user
-            val user = supabase.auth.currentUserOrNull()
-            fullName = user?.userMetadata?.get("full_name")
-            email = user?.email
+            // Fetch user profile from database
+            val result = UserRepository.getUserProfile()
+            result.onSuccess { profile ->
+                fullName = profile.fullName
+                email = profile.email
+                isLoading = false
+            }.onFailure {
+                // Fallback to auth metadata if database fetch fails
+                val user = supabase.auth.currentUserOrNull()
+                email = user?.email
+                fullName = user?.userMetadata?.get("full_name")
+                isLoading = false
+            }
         }
 
         Column(
@@ -82,25 +95,38 @@ fun ProfileScreen(navController: NavController) {
             Spacer(modifier = Modifier.height(32.dp))
             ProfileDetailsSection(fullName = fullName, email = email)
             Spacer(modifier = Modifier.height(32.dp))
-            SettingsSection()
-            Spacer(modifier = Modifier.weight(1f))
-            Button(
-                onClick = {
-                    coroutineScope.launch {
-                        UserRepository.signOut()
-                        navController.navigate("login") {
-                            popUpTo("login") { inclusive = true }
+            SettingsSection(
+                onLogoutClick = { showLogoutDialog = true }
+            )
+        }
+
+        // Logout Confirmation Dialog
+        if (showLogoutDialog) {
+            AlertDialog(
+                onDismissRequest = { showLogoutDialog = false },
+                title = { Text("Konfirmasi Logout") },
+                text = { Text("Apakah Anda yakin ingin keluar?") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showLogoutDialog = false
+                            coroutineScope.launch {
+                                UserRepository.signOut()
+                                navController.navigate("login") {
+                                    popUpTo(0)
+                                }
+                            }
                         }
+                    ) {
+                        Text("Keluar", color = Color.Red)
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(12.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2E8B57))
-            ) {
-                Text("Logout", color = Color.White)
-            }
+                dismissButton = {
+                    TextButton(onClick = { showLogoutDialog = false }) {
+                        Text("Batal")
+                    }
+                }
+            )
         }
     }
 }
@@ -152,7 +178,7 @@ fun ProfileDetailsSection(fullName: String? = null, email: String? = null) {
 }
 
 @Composable
-fun SettingsSection() {
+fun SettingsSection(onLogoutClick: () -> Unit = {}) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Pengaturan", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(8.dp))
@@ -171,7 +197,8 @@ fun SettingsSection() {
                     icon = Icons.AutoMirrored.Filled.ExitToApp,
                     text = "Keluar",
                     iconTint = Color.Red,
-                    textColor = Color.Red
+                    textColor = Color.Red,
+                    onClick = onLogoutClick
                 )
             }
         }
@@ -199,12 +226,13 @@ fun SettingsRow(
     icon: ImageVector,
     text: String,
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    textColor: Color = MaterialTheme.colorScheme.onSurface
+    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    onClick: () -> Unit = {}
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {  }
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

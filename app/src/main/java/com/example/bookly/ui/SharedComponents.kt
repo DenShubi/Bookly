@@ -81,7 +81,13 @@ fun BottomNavigationBar(navController: NavController, selected: String) {
         )
         NavigationBarItem(
             selected = selected == "peminjaman",
-            onClick = { if (selected != "peminjaman") navController.navigate("peminjaman") },
+            onClick = {
+                if (selected != "peminjaman") {
+                    navController.navigate("peminjaman") {
+                        launchSingleTop = true
+                    }
+                }
+            },
             icon = { Icon(Icons.Default.SwapHoriz, contentDescription = "Peminjaman") },
             label = {
                 Text(
@@ -105,7 +111,13 @@ fun BottomNavigationBar(navController: NavController, selected: String) {
         )
         NavigationBarItem(
             selected = selected == "wishlist",
-            onClick = { if (selected != "wishlist") navController.navigate("wishlist") },
+            onClick = {
+                if (selected != "wishlist") {
+                    navController.navigate("wishlist") {
+                        launchSingleTop = true
+                    }
+                }
+            },
             icon = {
                 if (selected == "wishlist") Icon(Icons.Filled.Favorite, contentDescription = "Wishlist")
                 else Icon(Icons.Outlined.FavoriteBorder, contentDescription = "Wishlist")
@@ -131,8 +143,14 @@ fun BottomNavigationBar(navController: NavController, selected: String) {
             modifier = Modifier.weight(1f)
         )
         NavigationBarItem(
-            selected = selected == "profil",
-            onClick = { if (selected != "profil") navController.navigate("profil") },
+            selected = selected == "profile",
+            onClick = {
+                if (selected != "profile") {
+                    navController.navigate("profile") {
+                        launchSingleTop = true
+                    }
+                }
+            },
             icon = { Icon(Icons.Default.Person, contentDescription = "Profil") },
             label = {
                 Text(
