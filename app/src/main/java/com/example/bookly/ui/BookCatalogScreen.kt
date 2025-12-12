@@ -1,5 +1,4 @@
 package com.example.bookly.ui
-
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -10,6 +9,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,20 +30,16 @@ import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import com.example.bookly.R
-import com.example.bookly.supabase.BooksRepository
+import com.example.bookly.viewmodel.BookCatalogViewModel
 import com.example.bookly.viewmodel.WishlistViewModel
-import kotlinx.coroutines.launch
-
 // Colors
 val Green = Color(0xFF2E8B57)
 val StarColor = Color(0xFFFFB800)
-
 // Category Colors
 val NovelColor = Color(0xFFE0F2F1)
 val BisnisColor = Color(0xFFFCE4EC)
 val PendidikanColor = Color(0xFFE3F2FD)
 val SejarahColor = Color(0xFFFFF3E0)
-
 // Data Class
 data class Book(
     val id: String = "",
@@ -55,118 +52,115 @@ data class Book(
     val coverImage: Int,
     val coverImageUrl: String? = null
 )
-
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookCatalogScreen(
     navController: NavController,
+    catalogViewModel: BookCatalogViewModel = viewModel(),
     wishlistViewModel: WishlistViewModel = viewModel()
 ) {
-    val scope = rememberCoroutineScope()
     var searchQuery by remember { mutableStateOf("") }
-    var allBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
-    var filteredBooks by remember { mutableStateOf<List<Book>>(emptyList()) }
+    // Collect state from ViewModels
+    val bookRows by catalogViewModel.books.collectAsState()
+    val isLoading by catalogViewModel.isLoading.collectAsState()
     val wishlistBooks by wishlistViewModel.wishlist.collectAsState()
-
-    // Load books from Supabase once
-    LaunchedEffect(Unit) {
-        scope.launch {
-            val res = BooksRepository.getBooks()
-            if (res.isSuccess) {
-                val rows = res.getOrNull().orEmpty()
-                // Map BookRow -> Book (UI model)
-                val mapped = rows.map { r ->
-                    val color = when (r.category?.lowercase()) {
-                        "novel" -> NovelColor
-                        "bisnis" -> BisnisColor
-                        "pendidikan" -> PendidikanColor
-                        "sejarah" -> SejarahColor
-                        else -> NovelColor
-                    }
-                    Book(
-                        id = r.id,
-                        title = r.title.ifBlank { "-" },
-                        author = r.author.ifBlank { "-" },
-                        rating = r.rating,
-                        availability = "${r.availableCopies}/${r.totalCopies} tersedia",
-                        category = r.category ?: "",
-                        categoryColor = color,
-                        coverImage = if (r.coverImageUrl.isNullOrBlank()) R.drawable.book_cover else R.drawable.book_cover,
-                        coverImageUrl = r.coverImageUrl
-                    )
-                }
-                allBooks = mapped
-                filteredBooks = mapped
-            } else {
-                // Keep lists empty on failure
-                allBooks = emptyList()
-                filteredBooks = emptyList()
+    // Map BookRow -> Book (UI model)
+    val allBooks = remember(bookRows) {
+        bookRows.map { r ->
+            val color = when (r.category?.lowercase()) {
+                "novel" -> NovelColor
+                "bisnis" -> BisnisColor
+                "pendidikan" -> PendidikanColor
+                "sejarah" -> SejarahColor
+                else -> NovelColor
+            }
+            Book(
+                id = r.id,
+                title = r.title.ifBlank { "-" },
+                author = r.author.ifBlank { "-" },
+                rating = r.rating,
+                availability = "${r.availableCopies}/${r.totalCopies} tersedia",
+                category = r.category ?: "",
+                categoryColor = color,
+                coverImage = R.drawable.book_cover,
+                coverImageUrl = r.coverImageUrl
+            )
+        }
+    }
+    // Filter books based on search query
+    val filteredBooks = remember(allBooks, searchQuery) {
+        if (searchQuery.isBlank()) {
+            allBooks
+        } else {
+            allBooks.filter { book ->
+                book.title.contains(searchQuery, ignoreCase = true) ||
+                        book.author.contains(searchQuery, ignoreCase = true)
             }
         }
     }
-
+    val pullToRefreshState = rememberPullToRefreshState()
     Scaffold(
         topBar = { BookCatalogTopAppBar(navController) },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
         containerColor = Color.White
     ) { paddingValues ->
-        LazyColumn(
+        PullToRefreshBox(
+            state = pullToRefreshState,
+            isRefreshing = isLoading,
+            onRefresh = { catalogViewModel.refreshBooks() },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color.White)
-                .padding(horizontal = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
         ) {
-            item {
-                SearchBar(
-                    searchQuery = searchQuery,
-                    onSearchQueryChange = { query ->
-                        searchQuery = query
-                        filteredBooks = if (query.isBlank()) {
-                            allBooks
-                        } else {
-                            allBooks.filter { book ->
-                                book.title.contains(query, ignoreCase = true) ||
-                                        book.author.contains(query, ignoreCase = true)
-                            }
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.White)
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
+                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+            ) {
+                item {
+                    SearchBar(
+                        searchQuery = searchQuery,
+                        onSearchQueryChange = { query ->
+                            searchQuery = query
+                        }
+                    )
+                }
+                item {
+                    FilterSortRow()
+                }
+                if (filteredBooks.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Tidak ada buku ditemukan",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
                         }
                     }
-                )
-            }
-            item {
-                FilterSortRow()
-            }
-            if (filteredBooks.isEmpty()) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 32.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Tidak ada buku ditemukan",
-                            color = Color.Gray,
-                            fontSize = 16.sp
+                } else {
+                    items(filteredBooks) { book ->
+                        val isWishlisted = wishlistBooks.any { it.id == book.id }
+                        BookCard(
+                            book = book,
+                            isWishlisted = isWishlisted,
+                            onWishlistClick = { wishlistViewModel.toggleWishlist(book) },
+                            onClick = { /* TODO: Navigate to book details */ }
                         )
                     }
-                }
-            } else {
-                items(filteredBooks) { book ->
-                    val isWishlisted = wishlistBooks.any { it.id == book.id }
-                    BookCard(
-                        book = book,
-                        isWishlisted = isWishlisted,
-                        onWishlistClick = { wishlistViewModel.toggleWishlist(book) },
-                        onClick = { /* TODO: Navigate to book details */ }
-                    )
                 }
             }
         }
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookCatalogTopAppBar(navController: NavController) {
@@ -191,7 +185,6 @@ fun BookCatalogTopAppBar(navController: NavController) {
         Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
     }
 }
-
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBar(
@@ -216,7 +209,6 @@ fun SearchBar(
         )
     )
 }
-
 @Composable
 fun FilterSortRow() {
     Row(
@@ -229,7 +221,6 @@ fun FilterSortRow() {
         FilterSortItem(icon = Icons.Default.SwapVert, text = "Urutkan")
     }
 }
-
 @Composable
 fun FilterSortItem(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { }) {
@@ -238,7 +229,6 @@ fun FilterSortItem(icon: ImageVector, text: String) {
         Text(text = text, color = Green, fontSize = 16.sp)
     }
 }
-
 @Composable
 fun BookCard(
     book: Book,
@@ -309,7 +299,6 @@ fun BookCard(
         }
     }
 }
-
 @Composable
 fun Chip(text: String, color: Color) {
     Box(
@@ -325,19 +314,16 @@ fun Chip(text: String, color: Color) {
         )
     }
 }
-
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun BookCatalogScreenPreview() {
     BookCatalogScreen(navController = rememberNavController())
 }
-
 @Preview(showBackground = true)
 @Composable
 fun BookCatalogTopAppBarPreview() {
     BookCatalogTopAppBar(navController = rememberNavController())
 }
-
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 fun SearchBarPreview() {
@@ -345,19 +331,16 @@ fun SearchBarPreview() {
         SearchBar()
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun FilterSortRowPreview() {
     FilterSortRow()
 }
-
 @Preview(showBackground = true)
 @Composable
 fun FilterSortItemPreview() {
     FilterSortItem(icon = Icons.Default.FilterList, text = "Filter")
 }
-
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 fun BookCardPreview() {
@@ -365,7 +348,6 @@ fun BookCardPreview() {
         BookCard(book = Book(id = "1", title = "Laskar Pelangi", author = "Andrea Hirata", rating = 4.9f, availability = "5/8 tersedia", category = "Novel", categoryColor = NovelColor, coverImage = R.drawable.book_cover), onClick = {})
     }
 }
-
 @Preview(showBackground = true)
 @Composable
 fun ChipPreview() {
