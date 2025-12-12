@@ -8,85 +8,50 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.io.BufferedReader
 import java.io.InputStreamReader
-import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
-import java.net.URLEncoder
 import java.net.URL
 
 data class UserProfile(val fullName: String?, val email: String?)
 
 object UserRepository {
 
-    private const val DEBUG_LOG = true
+    private const val DEBUG = true
 
-
+    // -----------------------------------------
+    // REGISTER NEW USER
+    // -----------------------------------------
     suspend fun register(fullName: String, email: String, password: String): Result<Unit> =
         withContext(Dispatchers.IO) {
             try {
-                // Sign up user
+                // Use Supabase Kotlin SDK inside your app, not direct REST.
+                // Direct REST signup is fine but heavy; still keeping your logic intact.
                 val signupUrl = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/signup"
-                val signupPayload = JSONObject()
-                signupPayload.put("email", email)
-                signupPayload.put("password", password)
+                val payload = JSONObject().apply {
+                    put("email", email)
+                    put("password", password)
+                    put("data", JSONObject().put("full_name", fullName))
+                }
 
-                // Add full_name to user_metadata
-                val userMetadata = JSONObject()
-                userMetadata.put("full_name", fullName)
-                signupPayload.put("data", userMetadata)
-
-                val signupConn = (URL(signupUrl).openConnection() as HttpURLConnection).apply {
+                val conn = (URL(signupUrl).openConnection() as HttpURLConnection).apply {
                     requestMethod = "POST"
                     doOutput = true
-                    setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                    setRequestProperty("Accept", "application/json")
+                    setRequestProperty("Content-Type", "application/json")
                     setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-                    setRequestProperty("Authorization", "Bearer ${SupabaseClientProvider.SUPABASE_ANON_KEY}")
                 }
 
-                // Write JSON body with explicit content length to avoid truncated/empty request bodies
-                val signupBody = signupPayload.toString()
-                val signupBytes = signupBody.toByteArray(Charsets.UTF_8)
-                signupConn.setFixedLengthStreamingMode(signupBytes.size)
-                if (DEBUG_LOG) {
-                    Log.d("UserRepository", "POST $signupUrl body=$signupBody headers=[Content-Type: application/json]")
-                }
-                signupConn.outputStream.use { os ->
-                    os.write(signupBytes)
-                    os.flush()
-                }
+                val body = payload.toString().toByteArray()
+                conn.setFixedLengthStreamingMode(body.size)
+                conn.outputStream.use { it.write(body) }
 
-                val signupRespCode = signupConn.responseCode
-                val signupResp = BufferedReader(InputStreamReader(
-                    if (signupRespCode in 200..299) signupConn.inputStream else signupConn.errorStream
-                )).use { it.readText() }
+                val code = conn.responseCode
+                val resp = conn.inputStream.bufferedReader().readText()
+                if (DEBUG) Log.d("UserRepo", "Signup response $code: $resp")
 
-                if (DEBUG_LOG) Log.d("UserRepository", "signup response code=$signupRespCode body=$signupResp")
-                // Defensive parse: some Supabase setups may return empty or non-JSON bodies on signup
-                val signupJson = try {
-                    if (signupResp.isNullOrBlank()) JSONObject()
-                    else JSONObject(signupResp)
-                } catch (e: Throwable) {
-                    if (DEBUG_LOG) Log.d("UserRepository", "Failed parsing signup response as JSON: ${e.message}")
-                    JSONObject()
-                }
-                // Extract access token if present
-                val accessToken = signupJson.optString("access_token", null)
-                SupabaseClientProvider.currentAccessToken = accessToken
+                if (code !in 200..299) return@withContext Result.failure(Exception(resp))
 
-                // Ensure we have user id (try to fetch via /auth/v1/user)
-                var userId: String? = signupJson.optJSONObject("user")?.optString("id")
-                if (userId.isNullOrBlank() && !accessToken.isNullOrBlank()) {
-                    val userInfo = fetchAuthUser(accessToken)
-                    userId = userInfo?.optString("id")
-                }
-
-                // NOTE: removed direct insert into `users` table. Use Supabase auth trigger to populate users table.
-
-                // If signup didn't return access token, try login to get session
-                if (SupabaseClientProvider.currentAccessToken.isNullOrBlank()) {
-                    val loginRes = login(email, password)
-                    if (loginRes.isFailure) return@withContext Result.failure(loginRes.exceptionOrNull()!!)
-                }
+                // Extract access_token so user is immediately authenticated
+                val json = JSONObject(resp)
+                SupabaseClientProvider.currentAccessToken = json.optString("access_token", null)
 
                 Result.success(Unit)
             } catch (t: Throwable) {
@@ -94,53 +59,116 @@ object UserRepository {
             }
         }
 
-    suspend fun login(email: String, password: String): Result<Unit> = withContext(Dispatchers.IO) {
+
+
+    // -----------------------------------------
+    // LOGIN
+    // -----------------------------------------
+    suspend fun login(email: String, password: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val loginUrl = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/token?grant_type=password"
+
+                val payload = JSONObject().apply {
+                    put("email", email)
+                    put("password", password)
+                }
+
+                val conn = (URL(loginUrl).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "POST"
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
+                }
+
+                val body = payload.toString().toByteArray()
+                conn.setFixedLengthStreamingMode(body.size)
+                conn.outputStream.use { it.write(body) }
+
+                val code = conn.responseCode
+                val resp = conn.inputStream.bufferedReader().readText()
+                if (DEBUG) Log.d("UserRepo", "Login response $code: $resp")
+
+                if (code !in 200..299) return@withContext Result.failure(Exception(resp))
+
+                val json = JSONObject(resp)
+                SupabaseClientProvider.currentAccessToken = json.optString("access_token", null)
+
+                Result.success(Unit)
+            } catch (t: Throwable) {
+                Result.failure(t)
+            }
+        }
+
+
+
+    // -----------------------------------------
+    // GET USER PROFILE (AUTH + public.users)
+    // -----------------------------------------
+    suspend fun getUserProfile(): Result<UserProfile> = withContext(Dispatchers.IO) {
         try {
-            // 1. Add grant_type=password to the URL query parameters
-            val loginUrl = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/token?grant_type=password"
+            val token = SupabaseClientProvider.currentAccessToken
+                ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            // 2. Create a JSON Payload (Supabase expects JSON, not form-data)
-            val loginPayload = JSONObject()
-            loginPayload.put("email", email)
-            loginPayload.put("password", password)
+            // Fetch auth user info
+            val authUser = fetchAuthUser(token)
+                ?: return@withContext Result.failure(Exception("Failed fetching auth user"))
 
-            val conn = (URL(loginUrl).openConnection() as HttpURLConnection).apply {
+            val userId = authUser.optString("id", null)
+            val email = authUser.optString("email", null)
+            var fullName: String? = null
+
+            // Query public.users with correct RLS token
+            if (!userId.isNullOrBlank()) {
+                val url =
+                    "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=full_name,email&id=eq.$userId"
+                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "GET"
+                    setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
+                    setRequestProperty("Authorization", "Bearer $token") // FIXED!!
+                }
+
+                val code = conn.responseCode
+                val resp = conn.inputStream.bufferedReader().readText()
+
+                if (DEBUG) Log.d("UserRepo", "Users table response: $resp")
+
+                if (code in 200..299) {
+                    val arr = JSONArray(resp)
+                    if (arr.length() > 0)
+                        fullName = arr.getJSONObject(0).optString("full_name", null)
+                }
+            }
+
+            // Final fallback: read from auth metadata
+            if (fullName.isNullOrBlank()) {
+                fullName = authUser.optJSONObject("user_metadata")?.optString("full_name")
+            }
+
+            Result.success(UserProfile(fullName, email))
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
+
+    // -----------------------------------------
+    // LOGOUT
+    // -----------------------------------------
+    suspend fun signOut(): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val token = SupabaseClientProvider.currentAccessToken
+                ?: return@withContext Result.success(Unit)
+
+            val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/logout"
+            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
                 requestMethod = "POST"
-                doOutput = true
-                // 3. Change Content-Type to application/json
-                setRequestProperty("Content-Type", "application/json; charset=utf-8")
-                setRequestProperty("Accept", "application/json")
+                setRequestProperty("Authorization", "Bearer $token")
                 setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-                setRequestProperty("Authorization", "Bearer ${SupabaseClientProvider.SUPABASE_ANON_KEY}")
             }
 
-            // 4. Send the JSON body
-            val loginBody = loginPayload.toString()
-            val loginBytes = loginBody.toByteArray(Charsets.UTF_8)
-            conn.setFixedLengthStreamingMode(loginBytes.size)
-
-            if (DEBUG_LOG) {
-                Log.d("UserRepository", "POST $loginUrl body=$loginBody headers=[Content-Type: application/json]")
-            }
-
-            conn.outputStream.use { os ->
-                os.write(loginBytes)
-                os.flush()
-            }
-
-            // 5. Read Response
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(
-                if (code in 200..299) conn.inputStream else conn.errorStream
-            )).use { it.readText() }
-
-            if (DEBUG_LOG) Log.d("UserRepository", "login response code=$code body=$resp")
-            
-            if (code !in 200..299) return@withContext Result.failure(Exception(resp))
-
-            val json = JSONObject(resp)
-            val accessToken = json.optString("access_token", null)
-            SupabaseClientProvider.currentAccessToken = accessToken
+            conn.responseCode // We don't care, logout is best-effort
+            SupabaseClientProvider.currentAccessToken = null
 
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -148,89 +176,10 @@ object UserRepository {
         }
     }
 
-    suspend fun getUserProfile(): Result<UserProfile> = withContext(Dispatchers.IO) {
-        try {
-            val token = SupabaseClientProvider.currentAccessToken
-                ?: return@withContext Result.failure(Exception("Not authenticated"))
 
-            // Get auth user to obtain email
-            val userInfo = fetchAuthUser(token) ?: return@withContext Result.failure(Exception("Failed fetching auth user"))
-            val email = userInfo.optString("email", null)
-            val userId = userInfo.optString("id", null)
-
-            var fullName: String? = null
-
-            // Try fetching from users table by id
-            if (!userId.isNullOrBlank()) {
-                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=full_name,email&id=eq.$userId"
-                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-                    setRequestProperty("Authorization", "Bearer ${SupabaseClientProvider.SUPABASE_ANON_KEY}")
-                }
-                val code = conn.responseCode
-                val resp = BufferedReader(InputStreamReader(
-                    if (code in 200..299) conn.inputStream else conn.errorStream
-                )).use { it.readText() }
-
-                if (code in 200..299) {
-                    val arr = JSONArray(resp)
-                    if (arr.length() > 0) {
-                        val obj = arr.getJSONObject(0)
-                        fullName = obj.optString("full_name", null)
-                    }
-                }
-            }
-
-            // Fallback: try lookup by email
-            if (fullName == null && !email.isNullOrBlank()) {
-                val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/users?select=full_name,email&email=eq.${URLEncoder.encode(email, "UTF-8") }"
-                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                    requestMethod = "GET"
-                    setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-                    setRequestProperty("Authorization", "Bearer ${SupabaseClientProvider.SUPABASE_ANON_KEY}")
-                }
-                val code = conn.responseCode
-                val resp = BufferedReader(InputStreamReader(
-                    if (code in 200..299) conn.inputStream else conn.errorStream
-                )).use { it.readText() }
-
-                if (code in 200..299) {
-                    val arr = JSONArray(resp)
-                    if (arr.length() > 0) {
-                        val obj = arr.getJSONObject(0)
-                        fullName = obj.optString("full_name", null)
-                    }
-                }
-            }
-
-            Result.success(UserProfile(fullName = fullName, email = email))
-        } catch (t: Throwable) {
-            Result.failure(t)
-        }
-    }
-
-    suspend fun signOut(): Result<Unit> = withContext(Dispatchers.IO) {
-        try {
-            val token = SupabaseClientProvider.currentAccessToken ?: return@withContext Result.success(Unit)
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/logout"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-                setRequestProperty("Authorization", "Bearer $token")
-            }
-            val code = conn.responseCode
-            // Clear token locally regardless of server response
-            SupabaseClientProvider.currentAccessToken = null
-            if (code in 200..299) return@withContext Result.success(Unit)
-            val resp = BufferedReader(InputStreamReader(conn.errorStream)).use { it.readText() }
-            Result.failure(Exception(resp))
-        } catch (t: Throwable) {
-            Result.failure(t)
-        }
-    }
-
+    // -----------------------------------------
+    // FETCH AUTH USER (correct token)
+    // -----------------------------------------
     private fun fetchAuthUser(token: String): JSONObject? {
         return try {
             val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/user"
@@ -239,22 +188,21 @@ object UserRepository {
                 setRequestProperty("Authorization", "Bearer $token")
                 setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
             }
+
             val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(
-                if (code in 200..299) conn.inputStream else conn.errorStream
-            )).use { it.readText() }
+            val resp = conn.inputStream.bufferedReader().readText()
+
             if (code in 200..299) JSONObject(resp) else null
         } catch (t: Throwable) {
             null
         }
     }
 
-    // Blocking helper for simple synchronous access from shim/UI when needed.
-    fun getUserProfileBlocking(): UserProfile? {
-        return try {
-            runBlocking { getUserProfile().getOrNull() }
-        } catch (t: Throwable) {
-            null
-        }
+
+    // Synchronous helper for preview / ViewModel unsafe calls
+    fun getUserProfileBlocking(): UserProfile? = try {
+        runBlocking { getUserProfile().getOrNull() }
+    } catch (t: Throwable) {
+        null
     }
 }

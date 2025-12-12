@@ -27,6 +27,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import com.example.bookly.supabase.UserRepository
 import com.example.bookly.supabase.supabase
 import com.example.bookly.ui.BottomNavigationBar
+import com.example.bookly.viewmodel.WishlistViewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,7 +44,10 @@ import androidx.navigation.compose.rememberNavController
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(
+    navController: NavController,
+    wishlistViewModel: WishlistViewModel? = null
+) {
     Scaffold(
         topBar = {
             TopAppBar(
@@ -112,6 +116,7 @@ fun ProfileScreen(navController: NavController) {
                             showLogoutDialog = false
                             coroutineScope.launch {
                                 UserRepository.signOut()
+                                wishlistViewModel?.clearWishlist()
                                 navController.navigate("login") {
                                     popUpTo(0)
                                 }

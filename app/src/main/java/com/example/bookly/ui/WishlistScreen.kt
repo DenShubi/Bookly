@@ -14,8 +14,10 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,11 +48,25 @@ fun WishlistScreen(
     wishlistViewModel: WishlistViewModel = viewModel()
 ) {
     val wishlistBooks by wishlistViewModel.wishlist.collectAsState()
+    val toastMessage by wishlistViewModel.toastMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show toast message using Snackbar
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            wishlistViewModel.clearToastMessage()
+        }
+    }
 
     Scaffold(
         topBar = { WishlistTopAppBar(navController) },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "wishlist") },
-        containerColor = Color.White
+        containerColor = Color.White,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         if (wishlistBooks.isEmpty()) {
             // Empty State UI matching the screenshot

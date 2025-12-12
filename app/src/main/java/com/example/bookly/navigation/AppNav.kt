@@ -23,7 +23,12 @@ fun AppNav() {
     NavHost(navController = navController, startDestination = "login") {
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }
-        composable("profile") { ProfileScreen(navController = navController) }
+        composable("profile") {
+            ProfileScreen(
+                navController = navController,
+                wishlistViewModel = wishlistViewModel
+            )
+        }
         composable("katalog_buku") {
             BookCatalogScreen(
                 navController = navController,

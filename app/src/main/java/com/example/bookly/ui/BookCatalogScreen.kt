@@ -64,6 +64,20 @@ fun BookCatalogScreen(
     val bookRows by catalogViewModel.books.collectAsState()
     val isLoading by catalogViewModel.isLoading.collectAsState()
     val wishlistBooks by wishlistViewModel.wishlist.collectAsState()
+    val toastMessage by wishlistViewModel.toastMessage.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    // Show toast message using Snackbar
+    LaunchedEffect(toastMessage) {
+        toastMessage?.let { message ->
+            snackbarHostState.showSnackbar(
+                message = message,
+                duration = SnackbarDuration.Short
+            )
+            wishlistViewModel.clearToastMessage()
+        }
+    }
+
     // Map BookRow -> Book (UI model)
     val allBooks = remember(bookRows) {
         bookRows.map { r ->
@@ -87,6 +101,14 @@ fun BookCatalogScreen(
             )
         }
     }
+
+    // Load wishlist when books are loaded
+    LaunchedEffect(allBooks) {
+        if (allBooks.isNotEmpty()) {
+            wishlistViewModel.loadWishlist(allBooks)
+        }
+    }
+
     // Filter books based on search query
     val filteredBooks = remember(allBooks, searchQuery) {
         if (searchQuery.isBlank()) {
@@ -102,7 +124,8 @@ fun BookCatalogScreen(
     Scaffold(
         topBar = { BookCatalogTopAppBar(navController) },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
-        containerColor = Color.White
+        containerColor = Color.White,
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
         PullToRefreshBox(
             state = pullToRefreshState,
