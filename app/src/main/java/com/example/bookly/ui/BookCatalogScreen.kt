@@ -1,6 +1,5 @@
 package com.example.bookly.ui
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -28,6 +27,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
 import com.example.bookly.R
 import com.example.bookly.supabase.BooksRepository
 import com.example.bookly.viewmodel.WishlistViewModel
@@ -52,7 +52,8 @@ data class Book(
     val availability: String,
     val category: String,
     val categoryColor: Color,
-    val coverImage: Int
+    val coverImage: Int,
+    val coverImageUrl: String? = null
 )
 
 @Composable
@@ -89,7 +90,8 @@ fun BookCatalogScreen(
                         availability = "${r.availableCopies}/${r.totalCopies} tersedia",
                         category = r.category ?: "",
                         categoryColor = color,
-                        coverImage = if (r.coverImageUrl.isNullOrBlank()) R.drawable.book_cover else R.drawable.book_cover
+                        coverImage = if (r.coverImageUrl.isNullOrBlank()) R.drawable.book_cover else R.drawable.book_cover,
+                        coverImageUrl = r.coverImageUrl
                     )
                 }
                 allBooks = mapped
@@ -256,13 +258,15 @@ fun BookCard(
             modifier = Modifier.padding(12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Image(
-                painter = painterResource(id = book.coverImage),
+            AsyncImage(
+                model = book.coverImageUrl,
                 contentDescription = book.title,
                 modifier = Modifier
                     .size(80.dp, 100.dp)
                     .clip(RoundedCornerShape(12.dp)),
-                contentScale = ContentScale.Crop
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.book_cover),
+                error = painterResource(id = R.drawable.book_cover)
             )
             Spacer(modifier = Modifier.width(16.dp))
             Column(modifier = Modifier.weight(1f)) {
