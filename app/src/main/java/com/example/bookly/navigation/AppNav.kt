@@ -1,16 +1,18 @@
-
 package com.example.bookly.navigation
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.bookly.LoginScreen
 import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.BookCatalogScreen
+import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.viewmodel.WishlistViewModel
@@ -32,6 +34,17 @@ fun AppNav() {
         composable("katalog_buku") {
             BookCatalogScreen(
                 navController = navController,
+                wishlistViewModel = wishlistViewModel
+            )
+        }
+        composable(
+            route = "book_detail/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            BookDetailScreen(
+                navController = navController,
+                bookId = bookId,
                 wishlistViewModel = wishlistViewModel
             )
         }
