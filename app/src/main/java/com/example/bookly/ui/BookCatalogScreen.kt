@@ -176,7 +176,7 @@ fun BookCatalogScreen(
                             book = book,
                             isWishlisted = isWishlisted,
                             onWishlistClick = { wishlistViewModel.toggleWishlist(book) },
-                            onClick = { /* TODO: Navigate to book details */ }
+                            onClick = { navController.navigate("book_detail/${book.id}") }
                         )
                     }
                 }

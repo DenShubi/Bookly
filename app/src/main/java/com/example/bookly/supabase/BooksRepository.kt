@@ -38,13 +38,35 @@ object BooksRepository {
         }
     }
 
+    suspend fun getBookById(bookId: String): Result<BookRow?> = withContext(Dispatchers.IO) {
+        try {
+            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/books?select=*&id=eq.$bookId"
+            val response: HttpResponse = httpClient.get(url) {
+                headers {
+                    SupabaseClientProvider.headersWithAnon().forEach { (k, v) -> append(k, v) }
+                }
+                accept(ContentType.Application.Json)
+            }
+            val respText = response.bodyAsText()
+            val list = Json.decodeFromString(ListSerializer(BookRow.serializer()), respText)
+            Result.success(list.firstOrNull())
+        } catch (t: Throwable) {
+            Result.failure(t)
+        }
+    }
+
     @Serializable
     data class BookRow(
         @SerialName("id") val id: String = "",
         @SerialName("title") val title: String = "",
         @SerialName("author") val author: String = "",
+        @SerialName("publisher") val publisher: String? = null,
+        @SerialName("publication_year") val publicationYear: Int? = null,
+        @SerialName("language") val language: String? = null,
+        @SerialName("pages") val pages: Int? = null,
         @SerialName("category") val category: String? = null,
         @SerialName("category_color") val categoryColor: String? = null,
+        @SerialName("description") val description: String? = null,
         @SerialName("cover_image_url") val coverImageUrl: String? = null,
         @SerialName("rating") val rating: Float = 0f,
         @SerialName("total_copies") val totalCopies: Int = 1,
