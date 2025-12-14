@@ -252,21 +252,21 @@ fun BookDetailScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
-                                // Peminjaman Button (disabled for now)
+                                // Peminjaman Button -> navigate to Bookdetailscreen1 (borrow flow)
                                 Button(
-                                    onClick = { /* TODO: Navigate to peminjaman screen */ },
+                                    onClick = { navController.navigate("book_borrow/${book.id}") },
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(50.dp),
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = BottomNavInactive,
+                                        containerColor = Green,
                                         contentColor = Color.White
                                     ),
                                     shape = RoundedCornerShape(12.dp),
-                                    enabled = false
+                                    enabled = book.availableCopies > 0
                                 ) {
                                     Text(
-                                        text = "Peminjaman",
+                                        text = "Pinjam Buku",
                                         fontSize = 16.sp,
                                         fontWeight = FontWeight.Bold
                                     )
