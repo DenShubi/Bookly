@@ -13,7 +13,7 @@ import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
-import com.example.bookly.ui.ChangePasswordScreen
+import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.ui.ReviewScreen
@@ -33,9 +33,6 @@ fun AppNav() {
                 wishlistViewModel = wishlistViewModel
             )
         }
-        composable("change_password") {
-            ChangePasswordScreen(navController = navController)
-        }
         composable("katalog_buku") {
             BookCatalogScreen(
                 navController = navController,
@@ -54,6 +51,13 @@ fun AppNav() {
             )
         }
         composable(
+            route = "book_borrow/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            com.example.bookly.ui.BookDetailScreen(navController = navController, bookId = bookId)
+        }
+        composable(
             route = "book_borrow_confirm/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
@@ -68,6 +72,13 @@ fun AppNav() {
         ) { backStackEntry ->
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.PeminjamanScreen1(navController = navController, loanId = loanId)
+        }
+        composable(
+            route = "status_peminjaman/{loanId}",
+            arguments = listOf(navArgument("loanId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
+            com.example.bookly.ui.StatusPeminjaman(navController = navController, loanId = loanId)
         }
         composable("wishlist") {
             WishlistScreen(

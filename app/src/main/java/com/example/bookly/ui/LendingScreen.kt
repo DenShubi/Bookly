@@ -25,8 +25,6 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import com.example.bookly.supabase.LoansRepository
 import java.text.SimpleDateFormat
 import java.util.*
