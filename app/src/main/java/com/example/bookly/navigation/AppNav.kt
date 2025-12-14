@@ -15,6 +15,7 @@ import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.PeminjamanScreen
+import com.example.bookly.ui.ReviewListScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.ui.ReviewScreen
 import com.example.bookly.viewmodel.WishlistViewModel
@@ -93,7 +94,17 @@ fun AppNav() {
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            // Panggil ReviewScreen (pastikan file ReviewScreen.kt sudah ada dari langkah sebelumnya)
+            // Panggil Screen BARU (List)
+            ReviewListScreen(navController = navController, bookId = bookId)
+        }
+
+        composable(
+            route = "review_form/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            // Panggil Screen LAMA (Form Tulis)
+            // Catatan: Pastikan ReviewScreen Anda menerima navController
             ReviewScreen(navController = navController)
         }
     }
