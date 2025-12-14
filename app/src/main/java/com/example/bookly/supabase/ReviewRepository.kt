@@ -109,4 +109,25 @@ object ReviewRepository {
             Result.failure(e)
         }
     }
+
+    suspend fun deleteReview(reviewId: String): Result<Boolean> {
+        return try {
+            val client = SupabaseClientProvider.client
+            // Kita tidak perlu cek user manual, karena Supabase RLS di SQL akan menolak otomatis jika bukan miliknya
+            client.from("reviews").delete {
+                filter {
+                    eq("id", reviewId)
+                }
+            }
+            Result.success(true)
+        } catch (e: Exception) {
+            Log.e("ReviewRepository", "Error deleting review: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Helper untuk mendapatkan ID user yang sedang login (untuk pengecekan di UI)
+    fun getCurrentUserId(): String? {
+        return SupabaseClientProvider.client.auth.currentUserOrNull()?.id
+    }
 }

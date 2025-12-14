@@ -15,6 +15,7 @@ import java.util.UUID
 // Tambahkan field untuk info buku di UI State
 data class ReviewUiState(
     val reviews: List<ReviewRepository.ReviewRow> = emptyList(),
+    val currentUserId: String? = null, // <--- TAMBAHAN INI
 
     // Data Buku untuk tampilan Form
     val bookTitle: String = "",
@@ -31,8 +32,6 @@ class ReviewViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(ReviewUiState())
     val uiState: StateFlow<ReviewUiState> = _uiState.asStateFlow()
 
-    // --- 1. Load Data Buku Asli ---
-    // --- 1. Load Data Buku Asli ---
     fun loadBookInfo(bookId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
@@ -41,7 +40,6 @@ class ReviewViewModel : ViewModel() {
 
             result.fold(
                 onSuccess = { book ->
-                    // 'book' di sini tipenya BookRow? (bisa null)
 
                     if (book != null) {
                         _uiState.value = _uiState.value.copy(
@@ -72,13 +70,42 @@ class ReviewViewModel : ViewModel() {
     fun loadReviews(bookId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
+
+            // Ambil ID user yang sedang login
+            val userId = ReviewRepository.getCurrentUserId()
+
             val result = ReviewRepository.getReviewsByBookId(bookId)
             result.fold(
                 onSuccess = { reviews ->
-                    _uiState.value = _uiState.value.copy(isLoading = false, reviews = reviews)
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        reviews = reviews,
+                        currentUserId = userId // Simpan di state
+                    )
                 },
                 onFailure = { error ->
                     _uiState.value = _uiState.value.copy(isLoading = false, errorMessage = error.localizedMessage)
+                }
+            )
+        }
+    }
+
+    fun deleteReview(reviewId: String, bookId: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isLoading = true)
+
+            val result = ReviewRepository.deleteReview(reviewId)
+
+            result.fold(
+                onSuccess = {
+                    // Jika berhasil hapus, refresh list review
+                    loadReviews(bookId)
+                },
+                onFailure = { e ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Gagal menghapus: ${e.message}"
+                    )
                 }
             )
         }
