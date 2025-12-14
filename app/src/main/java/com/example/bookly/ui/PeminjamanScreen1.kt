@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
+import androidx.compose.ui.text.style.TextOverflow
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PeminjamanScreen1(navController: NavController, loanId: String?) {
@@ -58,7 +60,7 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
                     }
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text(text = "Status Peminjaman", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = Green)
+                    Text(text = "Status Peminjaman", fontSize = 28.sp, fontWeight = FontWeight.Bold, color = BottomNavGreen)
                 }
                 Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp)
             }
@@ -72,7 +74,7 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
             .padding(paddingValues)) {
 
             when {
-                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Green)
+                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = BottomNavGreen)
                 error != null -> Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(text = error ?: "Terjadi Kesalahan", color = Color.Red)
                     Spacer(modifier = Modifier.height(8.dp))
@@ -203,7 +205,8 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                                 val res = LoansRepository.returnBook(l.id, l.bookId)
                                 if (res.isSuccess) {
                                     snackbarHostState.showSnackbar("Buku dikembalikan")
-                                    navController.navigate("peminjaman")
+                                    // navigate to status screen showing returned timeline
+                                    navController.navigate("status_peminjaman/${l.id}")
                                 } else {
                                     snackbarHostState.showSnackbar("Gagal: ${res.exceptionOrNull()?.localizedMessage}")
                                 }

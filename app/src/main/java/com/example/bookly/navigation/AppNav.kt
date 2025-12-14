@@ -14,6 +14,7 @@ import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.PeminjamanScreen
+import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.viewmodel.WishlistViewModel
 
@@ -70,6 +71,13 @@ fun AppNav() {
         ) { backStackEntry ->
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.PeminjamanScreen1(navController = navController, loanId = loanId)
+        }
+        composable(
+            route = "status_peminjaman/{loanId}",
+            arguments = listOf(navArgument("loanId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
+            com.example.bookly.ui.StatusPeminjaman(navController = navController, loanId = loanId)
         }
         composable("wishlist") {
             WishlistScreen(
