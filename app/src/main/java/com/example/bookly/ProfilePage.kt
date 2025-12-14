@@ -100,6 +100,7 @@ fun ProfileScreen(
             ProfileDetailsSection(fullName = fullName, email = email)
             Spacer(modifier = Modifier.height(32.dp))
             SettingsSection(
+                onChangePasswordClick = { navController.navigate("change_password") },
                 onLogoutClick = { showLogoutDialog = true }
             )
         }
@@ -183,7 +184,10 @@ fun ProfileDetailsSection(fullName: String? = null, email: String? = null) {
 }
 
 @Composable
-fun SettingsSection(onLogoutClick: () -> Unit = {}) {
+fun SettingsSection(
+    onChangePasswordClick: () -> Unit = {},
+    onLogoutClick: () -> Unit = {}
+) {
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Pengaturan", fontWeight = FontWeight.Bold, fontSize = 18.sp)
         Spacer(modifier = Modifier.height(8.dp))
@@ -196,7 +200,11 @@ fun SettingsSection(onLogoutClick: () -> Unit = {}) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 SettingsRow(icon = Icons.Default.Notifications, text = "Atur Notifikasi")
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                SettingsRow(icon = Icons.Default.MoreHoriz, text = "Ubah Kata Sandi")
+                SettingsRow(
+                    icon = Icons.Default.MoreHoriz,
+                    text = "Ubah Kata Sandi",
+                    onClick = onChangePasswordClick
+                )
                 HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
                 SettingsRow(
                     icon = Icons.AutoMirrored.Filled.ExitToApp,
