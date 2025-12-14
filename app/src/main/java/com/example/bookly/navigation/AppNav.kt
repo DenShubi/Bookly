@@ -16,6 +16,7 @@ import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.ChangePasswordScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.WishlistScreen
+import com.example.bookly.ui.ReviewScreen
 import com.example.bookly.viewmodel.WishlistViewModel
 
 @Composable
@@ -75,5 +76,14 @@ fun AppNav() {
             )
         }
         composable("notifikasi") { Text(text = "Notifikasi Screen") } // Kept for now, can be removed if not needed
+
+        composable(
+            route = "review/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            // Panggil ReviewScreen (pastikan file ReviewScreen.kt sudah ada dari langkah sebelumnya)
+            ReviewScreen(navController = navController)
+        }
     }
 }

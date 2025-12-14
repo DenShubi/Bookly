@@ -1,6 +1,7 @@
 package com.example.bookly.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable // Import ini penting
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -50,59 +51,31 @@ fun BookDetailScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Load book details
     LaunchedEffect(bookId) {
         detailViewModel.loadBookDetail(bookId)
     }
 
-    // Show toast message
     LaunchedEffect(toastMessage) {
         toastMessage?.let { message ->
-            snackbarHostState.showSnackbar(
-                message = message,
-                duration = SnackbarDuration.Short
-            )
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
             wishlistViewModel.clearToastMessage()
         }
     }
 
     Scaffold(
-        topBar = {
-            BookDetailTopAppBar(navController)
-        },
-        bottomBar = {
-            BottomNavigationBar(navController = navController, selected = "buku")
-        },
+        topBar = { BookDetailTopAppBar(navController) },
+        bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
         containerColor = Color.White,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
+        Box(modifier = Modifier.fillMaxSize().padding(paddingValues)) {
             when {
-                isLoading -> {
-                    CircularProgressIndicator(
-                        modifier = Modifier.align(Alignment.Center),
-                        color = Green
-                    )
-                }
+                isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = Green)
                 errorMessage != null -> {
-                    Column(
-                        modifier = Modifier.align(Alignment.Center),
-                        horizontalAlignment = Alignment.CenterHorizontally
-                    ) {
-                        Text(
-                            text = errorMessage ?: "Terjadi kesalahan",
-                            color = Color.Red,
-                            textAlign = TextAlign.Center
-                        )
+                    Column(modifier = Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = errorMessage ?: "Terjadi kesalahan", color = Color.Red, textAlign = TextAlign.Center)
                         Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = { detailViewModel.loadBookDetail(bookId) },
-                            colors = ButtonDefaults.buttonColors(containerColor = Green)
-                        ) {
+                        Button(onClick = { detailViewModel.loadBookDetail(bookId) }, colors = ButtonDefaults.buttonColors(containerColor = Green)) {
                             Text("Coba Lagi")
                         }
                     }
@@ -114,50 +87,22 @@ fun BookDetailScreen(
                     val wishlistTextColor = Color(0xFFDA9A3C)
 
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
+                        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)
                     ) {
-                        // Book Cover Image
                         AsyncImage(
-                            model = book.coverImageUrl,
-                            contentDescription = book.title,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(220.dp)
-                                .clip(RoundedCornerShape(12.dp)),
+                            model = book.coverImageUrl, contentDescription = book.title,
+                            modifier = Modifier.fillMaxWidth().height(220.dp).clip(RoundedCornerShape(12.dp)),
                             contentScale = ContentScale.Crop,
                             placeholder = painterResource(id = R.drawable.book_cover),
                             error = painterResource(id = R.drawable.book_cover)
                         )
-
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        // Book Title
-                        Text(
-                            text = book.title,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.Black,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
+                        Text(text = book.title, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = Color.Black, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(6.dp))
-
-                        // Author Name
-                        Text(
-                            text = book.author,
-                            fontSize = 14.sp,
-                            color = GreyText,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier.fillMaxWidth()
-                        )
-
+                        Text(text = book.author, fontSize = 14.sp, color = GreyText, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
                         Spacer(modifier = Modifier.height(12.dp))
 
-                        // Category Chip and Rating Row
+                        // --- BAGIAN RATING (DIBUAT KLIKABLE) ---
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.Center,
@@ -171,88 +116,52 @@ fun BookDetailScreen(
                                 else -> NovelColor
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .background(categoryColor, CircleShape)
-                                    .padding(horizontal = 12.dp, vertical = 6.dp)
-                            ) {
-                                Text(
-                                    text = book.category ?: "Novel",
-                                    color = Green.copy(alpha = 0.8f),
-                                    fontWeight = FontWeight.SemiBold
-                                )
+                            Box(modifier = Modifier.background(categoryColor, CircleShape).padding(horizontal = 12.dp, vertical = 6.dp)) {
+                                Text(text = book.category ?: "Novel", color = Green.copy(alpha = 0.8f), fontWeight = FontWeight.SemiBold)
                             }
 
                             Spacer(modifier = Modifier.width(16.dp))
 
-                            // Rating
-                            Icon(
-                                Icons.Default.Star,
-                                contentDescription = "Rating",
-                                tint = StarColor
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text(
-                                text = String.format("%.1f", book.rating),
-                                fontWeight = FontWeight.Bold
-                            )
+                            // >>> DISINI PERUBAHANNYA <<<
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { navController.navigate("review/${book.id}") } // Navigasi ke Review
+                                    .padding(4.dp)
+                            ) {
+                                Icon(Icons.Default.Star, contentDescription = "Rating", tint = StarColor)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(text = String.format("%.1f", book.rating), fontWeight = FontWeight.Bold)
+                            }
                         }
+                        // ----------------------------------------
 
                         Spacer(modifier = Modifier.height(16.dp))
 
-                        // Informasi Buku Card
-                        Card(
-                            shape = RoundedCornerShape(12.dp),
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF6F6F6))
-                        ) {
+                        Card(shape = RoundedCornerShape(12.dp), modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color(0xFFF6F6F6))) {
                             Column(modifier = Modifier.padding(16.dp)) {
-                                Text(
-                                    text = "Informasi Buku",
-                                    fontWeight = FontWeight.Bold
-                                )
+                                Text(text = "Informasi Buku", fontWeight = FontWeight.Bold)
                                 Spacer(modifier = Modifier.height(8.dp))
                                 BookInfoRow(label = "Penerbit", value = book.publisher ?: "-")
                                 BookInfoRow(label = "Tahun Terbit", value = book.publicationYear?.toString() ?: "-")
                                 BookInfoRow(label = "Halaman", value = book.pages?.let { "$it halaman" } ?: "-")
                                 BookInfoRow(label = "Bahasa", value = book.language ?: "-")
-                                BookInfoRow(
-                                    label = "Ketersediaan",
-                                    value = "${book.availableCopies} dari ${book.totalCopies} tersedia",
-                                    valueColor = if (book.availableCopies > 0) Green else Color.Red
-                                )
+                                BookInfoRow(label = "Ketersediaan", value = "${book.availableCopies} dari ${book.totalCopies} tersedia", valueColor = if (book.availableCopies > 0) Green else Color.Red)
                             }
                         }
 
                         Spacer(modifier = Modifier.height(12.dp))
-
-                        // Deskripsi Section
-                        Text(
-                            text = "Deskripsi",
-                            fontWeight = FontWeight.Bold
-                        )
+                        Text(text = "Deskripsi", fontWeight = FontWeight.Bold)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text(
-                            text = book.description ?: "-",
-                            color = GreyText,
-                            lineHeight = 20.sp
-                        )
-
+                        Text(text = book.description ?: "-", color = GreyText, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(20.dp))
 
-                        // Action Buttons - Column layout with improved styling
-                        Column(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            // Wishlist Button
+                        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                             ElevatedButton(
                                 onClick = {
                                     val bookForWishlist = Book(
-                                        id = book.id,
-                                        title = book.title,
-                                        author = book.author,
-                                        rating = book.rating,
+                                        id = book.id, title = book.title, author = book.author, rating = book.rating,
                                         availability = "${book.availableCopies}/${book.totalCopies} tersedia",
                                         category = book.category ?: "",
                                         categoryColor = when (book.category?.lowercase()) {
@@ -261,61 +170,31 @@ fun BookDetailScreen(
                                             "pendidikan" -> PendidikanColor
                                             "sejarah" -> SejarahColor
                                             else -> NovelColor
-                                        },
-                                        coverImage = R.drawable.book_cover,
-                                        coverImageUrl = book.coverImageUrl
+                                        }, coverImage = R.drawable.book_cover, coverImageUrl = book.coverImageUrl
                                     )
                                     wishlistViewModel.toggleWishlist(bookForWishlist)
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
-                                shape = RoundedCornerShape(12.dp),
+                                modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp),
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = if (isWishlisted) Color(0xFFD91F11) else wishlistBg,
                                     contentColor = if (isWishlisted) Color.White else wishlistTextColor
                                 )
                             ) {
-                                Icon(
-                                    imageVector = if (isWishlisted) Icons.Filled.Favorite else Icons.Outlined.Favorite,
-                                    contentDescription = "Wishlist",
-                                    tint = if (isWishlisted) Color.White else wishlistTextColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(imageVector = if (isWishlisted) Icons.Filled.Favorite else Icons.Outlined.Favorite, contentDescription = "Wishlist", tint = if (isWishlisted) Color.White else wishlistTextColor, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = if (isWishlisted) "Hapus dari Wishlist" else "Tambah ke Wishlist",
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isWishlisted) Color.White else wishlistTextColor,
-                                    fontSize = 16.sp
-                                )
+                                Text(text = if (isWishlisted) "Hapus dari Wishlist" else "Tambah ke Wishlist", fontWeight = FontWeight.Bold, color = if (isWishlisted) Color.White else wishlistTextColor, fontSize = 16.sp)
                             }
 
-                            // Pinjam Buku Button - Navigate to confirmation screen
                             Button(
-                                onClick = {
-                                    navController.navigate("book_borrow_confirm/${book.id}")
-                                },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .height(50.dp),
+                                onClick = { navController.navigate("book_borrow_confirm/${book.id}") },
+                                modifier = Modifier.fillMaxWidth().height(50.dp),
                                 colors = ButtonDefaults.buttonColors(containerColor = Green),
                                 shape = RoundedCornerShape(12.dp),
                                 enabled = book.availableCopies > 0
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.MenuBook,
-                                    contentDescription = "Pinjam",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Icon(imageVector = Icons.Outlined.MenuBook, contentDescription = "Pinjam", tint = Color.White, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Pinjam Buku",
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 16.sp
-                                )
+                                Text(text = "Pinjam Buku", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }
@@ -330,83 +209,21 @@ fun BookDetailScreen(
 fun BookDetailTopAppBar(navController: NavController) {
     Column(modifier = Modifier.background(Color.White)) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
+            modifier = Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { navController.navigateUp() }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
-            }
+            IconButton(onClick = { navController.navigateUp() }) { Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black) }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Detail Buku",
-                color = Green,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = "Detail Buku", color = Green, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
-        HorizontalDivider(
-            color = Color.LightGray.copy(alpha = 0.5f),
-            thickness = 1.dp,
-            modifier = Modifier.shadow(1.dp)
-        )
+        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
     }
 }
 
 @Composable
-fun BookInfoRow(
-    label: String,
-    value: String,
-    valueColor: Color = Color.Black
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween
-    ) {
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = GreyText,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            fontSize = 14.sp,
-            color = valueColor,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f)
-        )
+fun BookInfoRow(label: String, value: String, valueColor: Color = Color.Black) {
+    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+        Text(text = label, fontSize = 14.sp, color = GreyText, modifier = Modifier.weight(1f))
+        Text(text = value, fontSize = 14.sp, color = valueColor, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
     }
 }
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun BookDetailScreenPreview() {
-    BookDetailScreen(
-        navController = rememberNavController(),
-        bookId = "sample-id"
-    )
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BookDetailTopAppBarPreview() {
-    BookDetailTopAppBar(navController = rememberNavController())
-}
-
-@Preview(showBackground = true)
-@Composable
-fun BookInfoRowPreview() {
-    Column(modifier = Modifier.padding(16.dp)) {
-        BookInfoRow(label = "Penerbit", value = "Bentang Pustaka")
-        BookInfoRow(label = "Tahun Terbit", value = "2005")
-        BookInfoRow(label = "Halaman", value = "529 halaman")
-        BookInfoRow(label = "Bahasa", value = "Indonesia")
-        BookInfoRow(label = "Ketersediaan", value = "5 dari 8 tersedia", valueColor = Green)
-    }
-}
-
