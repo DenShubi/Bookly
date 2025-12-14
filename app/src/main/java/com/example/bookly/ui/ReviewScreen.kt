@@ -1,5 +1,9 @@
 package com.example.bookly.ui
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,123 +27,219 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import com.example.bookly.R
+import com.example.bookly.viewmodel.ReviewViewModel
 
 // --- Colors ---
-val PrimaryGreen = Color(0xFF2D9C6D)
-val BackgroundGray = Color(0xFFF5F5F5)
-val TextBlack = Color.Black
-val TextGray = Color(0xFF666666)
+ val PrimaryGreen = Color(0xFF2D9C6D)
+ val BackgroundGray = Color(0xFFF5F5F5)
 
-// --- Data Class Sederhana untuk UI ---
-data class BookReviewData(
-    val title: String,
-    val author: String,
-    val coverUrl: String? = null
-)
-
-// ==========================================
-// 1. STATEFUL COMPOSABLE (Logic Wrapper)
-// ==========================================
 @Composable
 fun ReviewScreen(
-    navController: NavController
+    navController: NavController,
+    viewModel: ReviewViewModel = viewModel()
 ) {
-    // --- State Hoisting ---
-    var rating by remember { mutableIntStateOf(0) }
-    var reviewText by remember { mutableStateOf("") }
-    val photoList = remember { mutableStateListOf("123.jpg", "1234.jpg") }
+    val context = LocalContext.current
+    val navBackStackEntry = navController.currentBackStackEntry
+    val bookId = navBackStackEntry?.arguments?.getString("bookId") ?: ""
 
-    // --- Dummy Data ---
-    val bookData = remember {
-        BookReviewData("Laskar Pelangi", "Andrea Hirata")
+    // 1. Ambil State UI dari ViewModel
+    val state by viewModel.uiState.collectAsState()
+
+    // 2. Load Info Buku saat layar dibuka
+    LaunchedEffect(bookId) {
+        viewModel.loadBookInfo(bookId)
     }
 
-    // Panggil UI Murni
-    ReviewContent(
-        navController = navController,
-        bookData = bookData,
-        rating = rating,
-        reviewText = reviewText,
-        photoList = photoList,
-        onRatingChanged = { rating = it },
-        onReviewTextChanged = { reviewText = it },
-        onAddPhotoClick = { /* Logic tambah foto */ },
-        onRemovePhotoClick = { photo -> photoList.remove(photo) },
-        onSubmitClick = { navController.popBackStack() }
-    )
-}
+    // --- STATE LOKAL FORM ---
+    var rating by remember { mutableIntStateOf(0) }
+    var reviewText by remember { mutableStateOf("") }
+    // Simpan List URI Gambar dari Galeri
+    val selectedImageUris = remember { mutableStateListOf<Uri>() }
 
-// ==========================================
-// 2. STATELESS COMPOSABLE (Pure UI)
-// ==========================================
-@Composable
-fun ReviewContent(
-    navController: NavController,
-    bookData: BookReviewData,
-    rating: Int,
-    reviewText: String,
-    photoList: List<String>,
-    onRatingChanged: (Int) -> Unit,
-    onReviewTextChanged: (String) -> Unit,
-    onAddPhotoClick: () -> Unit,
-    onRemovePhotoClick: (String) -> Unit,
-    onSubmitClick: () -> Unit
-) {
+    // --- PHOTO PICKER LAUNCHER ---
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia(maxItems = 3) // Max 3 foto
+    ) { uris ->
+        selectedImageUris.addAll(uris)
+    }
+
+    // Efek Samping: Jika Submit Sukses -> Kembali
+    LaunchedEffect(state.isSubmitSuccess) {
+        if (state.isSubmitSuccess) {
+            viewModel.resetSubmitStatus()
+            navController.popBackStack()
+        }
+    }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    LaunchedEffect(state.errorMessage) {
+        state.errorMessage?.let { msg -> snackbarHostState.showSnackbar(msg) }
+    }
+
     Scaffold(
         topBar = { ReviewTopAppBar(onBackClick = { navController.navigateUp() }) },
-        bottomBar = { SubmitButton(onClick = onSubmitClick) },
+        bottomBar = {
+            SubmitButton(
+                isLoading = state.isLoading,
+                onClick = {
+                    // Panggil fungsi submit dengan foto di ViewModel
+                    viewModel.submitReviewWithPhotos(
+                        context = context,
+                        bookId = bookId,
+                        rating = rating,
+                        reviewText = reviewText,
+                        photoUris = selectedImageUris
+                    )
+                }
+            )
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.White
     ) { paddingValues ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Spacer(modifier = Modifier.height(20.dp))
+        Box(modifier = Modifier.padding(paddingValues)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Spacer(modifier = Modifier.height(20.dp))
 
-            // 1. Info Buku
-            BookInfoCard(title = bookData.title, author = bookData.author)
+                // 3. Tampilkan Data Buku Asli
+                BookInfoCard(
+                    title = state.bookTitle.ifEmpty { "Memuat..." }, // Tampilkan loading text jika belum ada
+                    author = state.bookAuthor,
+                    coverUrl = state.bookCoverUrl
+                )
 
-            Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(30.dp))
 
-            // 2. Rating Bintang
-            RatingSection(rating = rating, onRatingChanged = onRatingChanged)
+                // 4. Rating Bintang (Interaktif)
+                RatingSection(
+                    rating = rating,
+                    onRatingChanged = { newRating -> rating = newRating }
+                )
 
-            Spacer(modifier = Modifier.height(30.dp))
+                Spacer(modifier = Modifier.height(30.dp))
 
-            // 3. Input Text
-            ReviewInputSection(text = reviewText, onTextChanged = onReviewTextChanged)
+                // 5. Input Text
+                ReviewInputSection(text = reviewText, onTextChanged = { reviewText = it })
 
-            Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(24.dp))
 
-            // 4. Foto Section
-            PhotoSection(
-                photoList = photoList,
-                onAddClick = onAddPhotoClick,
-                onRemoveClick = onRemovePhotoClick
-            )
+                // 6. Foto Section dengan Picker
+                PhotoSection(
+                    photoUris = selectedImageUris,
+                    onAddClick = {
+                        // Buka Galeri HP
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    onRemoveClick = { uri -> selectedImageUris.remove(uri) }
+                )
 
-            // Spacer bawah agar konten tidak tertutup tombol submit
-            Spacer(modifier = Modifier.height(100.dp))
+                Spacer(modifier = Modifier.height(100.dp))
+            }
+
+            if (state.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center), color = PrimaryGreen)
+            }
         }
     }
 }
 
-// ==========================================
-// 3. SUB-COMPONENTS (Modular)
-// ==========================================
+// --- Sub Komponen yang Diperbarui ---
 
-// --- PERBAIKAN DI SINI ---
+@Composable
+fun BookInfoCard(title: String, author: String, coverUrl: String?) {
+    Card(
+        modifier = Modifier.fillMaxWidth().shadow(elevation = 8.dp, shape = RoundedCornerShape(12.dp)),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            // Gambar Buku Asli
+            AsyncImage(
+                model = coverUrl,
+                contentDescription = title,
+                modifier = Modifier.size(width = 60.dp, height = 80.dp).clip(RoundedCornerShape(4.dp)),
+                contentScale = ContentScale.Crop,
+                placeholder = painterResource(id = R.drawable.book_cover), // Pastikan ada drawable ini
+                error = painterResource(id = R.drawable.book_cover)
+            )
+            Spacer(modifier = Modifier.width(16.dp))
+            Column {
+                Text(text = title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = Color.Black)
+                Text(text = author, fontSize = 14.sp, color = Color.Gray)
+            }
+        }
+    }
+}
+
+@Composable
+fun PhotoSection(photoUris: List<Uri>, onAddClick: () -> Unit, onRemoveClick: (Uri) -> Unit) {
+    Column {
+        Text(text = "Foto (Opsional)", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth()) {
+            items(photoUris) { uri ->
+                Box(modifier = Modifier.size(100.dp)) {
+                    // Tampilkan Gambar dari URI
+                    AsyncImage(
+                        model = uri,
+                        contentDescription = "Review Photo",
+                        modifier = Modifier
+                            .padding(top = 8.dp, end = 8.dp)
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(Color.LightGray),
+                        contentScale = ContentScale.Crop
+                    )
+                    // Tombol Hapus
+                    Icon(
+                        imageVector = Icons.Default.Remove,
+                        contentDescription = "Remove",
+                        tint = Color.White,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(24.dp)
+                            .background(Color(0xFFFF6F6F), CircleShape)
+                            .padding(2.dp)
+                            .clickable { onRemoveClick(uri) }
+                    )
+                }
+            }
+            // Tombol Tambah
+            item {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color(0xFFE0E0E0))
+                        .clickable { onAddClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = "Add Photo", tint = Color.Black)
+                }
+            }
+        }
+    }
+}
+
+// --- Komponen Lainnya Tetap Sama (ReviewTopAppBar, SubmitButton, RatingSection, ReviewInputSection) ---
+// (Pastikan kode komponen tersebut ada di bawah file ini agar tidak error)
 @Composable
 fun ReviewTopAppBar(onBackClick: () -> Unit) {
     Column(modifier = Modifier.background(Color.White)) {
@@ -150,82 +250,27 @@ fun ReviewTopAppBar(onBackClick: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             IconButton(onClick = onBackClick) {
-                Icon(
-                    imageVector = Icons.Default.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black
-                )
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "Review & Rating",
-                color = PrimaryGreen,
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Text(text = "Review & Rating", color = PrimaryGreen, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
-        Divider(
-            color = Color.LightGray.copy(alpha = 0.5f),
-            thickness = 1.dp,
-            modifier = Modifier.shadow(1.dp)
-        )
+        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
     }
 }
 
 @Composable
-fun SubmitButton(onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(16.dp)
-            .background(Color.White)
-    ) {
+fun SubmitButton(isLoading: Boolean, onClick: () -> Unit) {
+    Box(modifier = Modifier.fillMaxWidth().padding(16.dp).background(Color.White)) {
         Button(
             onClick = onClick,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            enabled = !isLoading,
+            modifier = Modifier.fillMaxWidth().height(56.dp),
             colors = ButtonDefaults.buttonColors(containerColor = PrimaryGreen),
             shape = RoundedCornerShape(28.dp)
         ) {
-            Text("Kirim Ulasan", color = Color.White, fontWeight = FontWeight.Bold)
-        }
-    }
-}
-
-@Composable
-fun BookInfoCard(title: String, author: String) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp, shape = RoundedCornerShape(12.dp)),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(width = 60.dp, height = 80.dp)
-                    .clip(RoundedCornerShape(4.dp))
-                    .background(Color.Gray)
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = title,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = TextBlack
-                )
-                Text(
-                    text = author,
-                    fontSize = 14.sp,
-                    color = TextGray
-                )
-            }
+            if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+            else Text("Kirim Ulasan", color = Color.White, fontWeight = FontWeight.Bold)
         }
     }
 }
@@ -237,165 +282,47 @@ fun RatingSection(rating: Int, onRatingChanged: (Int) -> Unit) {
             text = "Bagaimana Bukunya?",
             fontWeight = FontWeight.Bold,
             fontSize = 18.sp,
-            color = TextBlack
+            color = Color.Black // Pastikan pakai Color.Black atau TextBlack
         )
         Spacer(modifier = Modifier.height(16.dp))
+
         Row(
             horizontalArrangement = Arrangement.Center,
             modifier = Modifier.fillMaxWidth()
         ) {
             for (i in 1..5) {
+                // Tentukan warna: Emas jika dipilih, Abu-abu jika tidak
+                val starColor = if (i <= rating) Color(0xFFFFC107) else Color.LightGray
+
+                // Tentukan Icon: Full Star jika dipilih, bisa pakai Full juga untuk abu-abu agar rapi
+                // atau pakai Outlined jika ingin yang belum dipilih terlihat kosong
+                val starIcon = Icons.Filled.Star
+
                 Icon(
-                    imageVector = if (i <= rating) Icons.Filled.Star else Icons.Outlined.Star,
+                    imageVector = starIcon,
                     contentDescription = "Star $i",
                     modifier = Modifier
                         .size(48.dp)
                         .clickable { onRatingChanged(i) }
                         .padding(4.dp),
-                    tint = TextBlack
+                    tint = starColor // <--- Ini kuncinya
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        Text(
-            text = "Ketuk bintang untuk memberi rating",
-            style = TextStyle(color = TextBlack, fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-            modifier = Modifier.padding(horizontal = 16.dp)
-        )
     }
 }
 
 @Composable
 fun ReviewInputSection(text: String, onTextChanged: (String) -> Unit) {
     Column {
-        Text(
-            text = "Tulis Ulasan Mu",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(bottom = 12.dp)
-        )
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(BackgroundGray)
-                .padding(16.dp)
-        ) {
+        Text(text = "Tulis Ulasan Mu", fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(bottom = 12.dp))
+        Box(modifier = Modifier.fillMaxWidth().height(120.dp).clip(RoundedCornerShape(12.dp)).background(BackgroundGray).padding(16.dp)) {
             BasicTextField(
-                value = text,
-                onValueChange = onTextChanged,
-                textStyle = TextStyle(fontSize = 14.sp, color = TextBlack),
+                value = text, onValueChange = onTextChanged,
+                textStyle = TextStyle(fontSize = 14.sp, color = Color.Black),
                 modifier = Modifier.fillMaxSize(),
-                decorationBox = { innerTextField ->
-                    if (text.isEmpty()) {
-                        Text("Tulis pendapatmu tentang buku ini...", color = TextGray)
-                    }
-                    innerTextField()
-                }
+                decorationBox = { innerTextField -> if (text.isEmpty()) Text("Tulis pendapatmu...", color = Color.Gray); innerTextField() }
             )
         }
     }
-}
-
-@Composable
-fun PhotoSection(
-    photoList: List<String>,
-    onAddClick: () -> Unit,
-    onRemoveClick: (String) -> Unit
-) {
-    Column {
-        Text(
-            text = "Foto (Opsional)",
-            fontWeight = FontWeight.Bold,
-            fontSize = 16.sp,
-            modifier = Modifier
-                .align(Alignment.Start)
-                .padding(bottom = 12.dp)
-        )
-        LazyRow(
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            items(photoList) { photo ->
-                PhotoItem(photoName = photo, onRemoveClick = { onRemoveClick(photo) })
-            }
-            item {
-                Box(
-                    modifier = Modifier
-                        .size(100.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Color(0xFFE0E0E0))
-                        .clickable { onAddClick() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Add Photo",
-                        tint = TextBlack
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun PhotoItem(photoName: String, onRemoveClick: () -> Unit) {
-    Box(modifier = Modifier.size(100.dp)) {
-        Box(
-            modifier = Modifier
-                .padding(top = 8.dp, end = 8.dp)
-                .fillMaxSize()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFFFFCDD2)),
-            contentAlignment = Alignment.BottomStart
-        ) {
-            Text(
-                text = photoName,
-                fontSize = 10.sp,
-                modifier = Modifier.padding(8.dp)
-            )
-        }
-        Icon(
-            imageVector = Icons.Default.Remove,
-            contentDescription = "Remove",
-            tint = Color.White,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .size(24.dp)
-                .background(Color(0xFFFF6F6F), CircleShape)
-                .padding(2.dp)
-                .clickable { onRemoveClick() }
-        )
-    }
-}
-
-// ==========================================
-// 4. PREVIEWS
-// ==========================================
-
-@Preview(showBackground = true, showSystemUi = true, name = "1. Full Screen")
-@Composable
-fun ReviewScreenPreview() {
-    ReviewContent(
-        navController = rememberNavController(),
-        bookData = BookReviewData("Laskar Pelangi", "Andrea Hirata"),
-        rating = 3,
-        reviewText = "Buku yang sangat menginspirasi!",
-        photoList = listOf("img1.jpg", "img2.jpg"),
-        onRatingChanged = {},
-        onReviewTextChanged = {},
-        onAddPhotoClick = {},
-        onRemovePhotoClick = {},
-        onSubmitClick = {}
-    )
-}
-
-@Preview(showBackground = true, name = "2. Top Bar")
-@Composable
-fun ReviewTopAppBarPreview() {
-    ReviewTopAppBar(onBackClick = {})
 }

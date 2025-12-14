@@ -3,6 +3,7 @@ package com.example.bookly.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -10,7 +11,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,43 +21,50 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
+import com.example.bookly.viewmodel.ReviewViewModel
 
 // --- Colors ---
-// Pastikan warna ini sama dengan yang ada di ReviewScreen.kt
-// Jika sudah didefinisikan global, bisa dihapus.
 val CardBackground = Color(0xFFF5F5F5)
 
-// ==========================================
-// 1. STATEFUL COMPOSABLE (Logic Wrapper)
-// ==========================================
 @Composable
 fun ReviewListScreen(
     navController: NavController,
-    bookId: String
+    bookId: String,
+    viewModel: ReviewViewModel = viewModel() // Inject ViewModel
 ) {
-    // Di sini nanti tempat load data dari ViewModel (saat backend siap)
+    // 1. Ambil state dari ViewModel
+    val state by viewModel.uiState.collectAsState()
 
-    // Panggil UI Murni
+    // 2. Load data saat pertama kali dibuka
+    LaunchedEffect(bookId) {
+        viewModel.loadReviews(bookId)
+    }
+
     ReviewListContent(
+        reviews = state.reviews, // Kirim data asli ke UI
+        isLoading = state.isLoading,
+        errorMessage = state.errorMessage,
         onBackClick = { navController.navigateUp() },
-        onWriteReviewClick = { navController.navigate("review_form/$bookId") }
+        onWriteReviewClick = { navController.navigate("review_form/$bookId") },
+        onRetryClick = { viewModel.loadReviews(bookId) }
     )
 }
 
-// ==========================================
-// 2. STATELESS COMPOSABLE (Pure UI)
-// ==========================================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReviewListContent(
+    reviews: List<com.example.bookly.supabase.ReviewRepository.ReviewRow>,
+    isLoading: Boolean,
+    errorMessage: String?,
     onBackClick: () -> Unit,
-    onWriteReviewClick: () -> Unit
+    onWriteReviewClick: () -> Unit,
+    onRetryClick: () -> Unit
 ) {
     Scaffold(
         topBar = {
-            // Menggunakan TopAppBar Custom yang baru
             ReviewListTopAppBar(onBackClick = onBackClick)
         },
         floatingActionButton = {
@@ -76,52 +84,67 @@ fun ReviewListContent(
         },
         containerColor = Color.White
     ) { paddingValues ->
-        LazyColumn(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            // Dummy Data Items
-            item {
-                ReviewItemCard(
-                    name = "Prabs",
-                    rating = 5,
-                    review = "Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus"
-                )
-            }
-            item {
-                ReviewItemCard(
-                    name = "Prabs",
-                    rating = 4,
-                    review = "Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus"
-                )
-            }
-            item {
-                ReviewItemCard(
-                    name = "Prabs",
-                    rating = 5,
-                    review = "Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus Buku Bagus"
-                )
-            }
-            item {
-                ReviewItemCard(
-                    name = "User Lain",
-                    rating = 4,
-                    review = "Ceritanya sangat menarik dan inspiratif."
-                )
+            when {
+                // Loading State
+                isLoading -> {
+                    CircularProgressIndicator(
+                        modifier = Modifier.align(Alignment.Center),
+                        color = PrimaryGreen
+                    )
+                }
+
+                // Error State
+                errorMessage != null -> {
+                    Column(
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(text = errorMessage, color = Color.Red)
+                        Button(onClick = onRetryClick) {
+                            Text("Coba Lagi")
+                        }
+                    }
+                }
+
+                // Empty State
+                reviews.isEmpty() -> {
+                    Text(
+                        text = "Belum ada ulasan. Jadilah yang pertama!",
+                        modifier = Modifier.align(Alignment.Center),
+                        color = Color.Gray
+                    )
+                }
+
+                // Success State (List Data)
+                else -> {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(horizontal = 16.dp),
+                        contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        items(reviews) { review ->
+                            ReviewItemCard(
+                                name = review.users?.fullName ?: "Tanpa Nama",
+                                rating = review.rating,
+                                review = review.reviewText ?: ""
+                            )
+                        }
+                    }
+                }
             }
         }
     }
 }
 
-// ==========================================
-// 3. SUB-COMPONENTS (Modular)
-// ==========================================
+// --- Komponen Pendukung ---
 
-// --- CUSTOM TOP APP BAR (Sesuai Request) ---
 @Composable
 fun ReviewListTopAppBar(onBackClick: () -> Unit) {
     Column(modifier = Modifier.background(Color.White)) {
@@ -141,8 +164,8 @@ fun ReviewListTopAppBar(onBackClick: () -> Unit) {
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Review & Rating",
-                color = PrimaryGreen, // Pastikan variabel PrimaryGreen terimport/tersedia
-                fontSize = 28.sp,     // Ukuran besar sesuai desain BookCatalog/ReviewScreen
+                color = PrimaryGreen,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold
             )
         }
@@ -162,9 +185,7 @@ fun ReviewItemCard(name: String, rating: Int, review: String) {
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
-        ) {
+        Column(modifier = Modifier.padding(16.dp)) {
             // Bintang
             Row {
                 repeat(5) { index ->
@@ -181,14 +202,15 @@ fun ReviewItemCard(name: String, rating: Int, review: String) {
             Spacer(modifier = Modifier.height(12.dp))
 
             // Teks Review
-            Text(
-                text = review,
-                color = Color.Black,
-                fontSize = 14.sp,
-                lineHeight = 20.sp
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
+            if (review.isNotEmpty()) {
+                Text(
+                    text = review,
+                    color = Color.Black,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // User Profile
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -208,20 +230,4 @@ fun ReviewItemCard(name: String, rating: Int, review: String) {
             }
         }
     }
-}
-
-// ==========================================
-// 4. PREVIEWS
-// ==========================================
-
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun ReviewListScreenPreview() {
-    ReviewListContent(onBackClick = {}, onWriteReviewClick = {})
-}
-
-@Preview(showBackground = true)
-@Composable
-fun ReviewListTopAppBarPreview() {
-    ReviewListTopAppBar(onBackClick = {})
 }
