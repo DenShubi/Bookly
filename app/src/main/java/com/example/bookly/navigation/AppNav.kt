@@ -59,8 +59,22 @@ fun AppNav() {
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             com.example.bookly.ui.Bookdetailscreen1(navController = navController, bookId = bookId)
         }
+        composable(
+            route = "book_borrow_confirm/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            com.example.bookly.ui.Bookdetailscreen2(navController = navController, bookId = bookId)
+        }
         composable("home") { Text(text = "Beranda Screen") }
         composable("peminjaman") { PeminjamanScreen(navController = navController) }
+        composable(
+            route = "peminjamanScreen1/{loanId}",
+            arguments = listOf(navArgument("loanId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
+            com.example.bookly.ui.PeminjamanScreen1(navController = navController, loanId = loanId)
+        }
         composable("wishlist") {
             WishlistScreen(
                 navController = navController,

@@ -2,12 +2,15 @@ package com.example.bookly.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +39,9 @@ fun Bookdetailscreen1(navController: NavController, bookId: String) {
     var error by remember { mutableStateOf<String?>(null) }
     var book by remember { mutableStateOf<BooksRepository.BookRow?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
+    // local colors for buttons to match design
+    val wishlistBg = Color(0xFFF7E7CC)
+    val wishlistTextColor = Color(0xFFDA9A3C)
 
     LaunchedEffect(bookId) {
         isLoading = true
@@ -52,6 +58,7 @@ fun Bookdetailscreen1(navController: NavController, bookId: String) {
 
     Scaffold(
         topBar = { BookDetailTopAppBar(navController = navController) },
+        bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
         containerColor = Color.White,
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { paddingValues ->
@@ -70,6 +77,7 @@ fun Bookdetailscreen1(navController: NavController, bookId: String) {
                     val b = book!!
                     Column(modifier = Modifier
                         .fillMaxSize()
+                        .verticalScroll(rememberScrollState())
                         .padding(16.dp)) {
 
                         AsyncImage(
@@ -127,8 +135,8 @@ fun Bookdetailscreen1(navController: NavController, bookId: String) {
 
                         // Buttons
                         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            // Wishlist button
-                            OutlinedButton(onClick = {
+                            // Wishlist button (match BookDetailScreen sizes/style)
+                            ElevatedButton(onClick = {
                                 scope.launch {
                                     val res = WishlistRepository.addToWishlist(b.id)
                                     if (res.isSuccess) snackbarHostState.showSnackbar("Ditambahkan ke Wishlist")
@@ -136,27 +144,23 @@ fun Bookdetailscreen1(navController: NavController, bookId: String) {
                                 }
                             }, modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp), shape = RoundedCornerShape(12.dp)) {
-                                Icon(imageVector = Icons.Outlined.Favorite, contentDescription = "Wishlist")
+                                .height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = wishlistBg, contentColor = wishlistTextColor)) {
+                                Icon(imageVector = Icons.Outlined.Favorite, contentDescription = "Wishlist", tint = wishlistTextColor, modifier = Modifier.size(20.dp))
                                 Spacer(modifier = Modifier.width(8.dp))
-                                Text(text = "Tambah ke Wishlist")
+                                Text(text = "Tambah ke Wishlist", fontWeight = FontWeight.Bold, color = wishlistTextColor, fontSize = 16.sp)
                             }
 
                             Button(onClick = {
-                                scope.launch {
-                                    val res = LoansRepository.borrowBook(b.id)
-                                    if (res.isSuccess) {
-                                        snackbarHostState.showSnackbar("Berhasil meminjam buku")
-                                        // navigate to peminjaman overview
-                                        navController.navigate("peminjaman")
-                                    } else {
-                                        snackbarHostState.showSnackbar("Gagal meminjam: ${res.exceptionOrNull()?.localizedMessage ?: "error"}")
-                                    }
-                                }
+                                // Navigate to confirmation screen first; actual borrowing happens there
+                                navController.navigate("book_borrow_confirm/${b.id}")
                             }, modifier = Modifier
                                 .fillMaxWidth()
-                                .height(52.dp), colors = ButtonDefaults.buttonColors(containerColor = Green), shape = RoundedCornerShape(12.dp)) {
-                                Text(text = "Pinjam Buku", color = Color.White)
+                                .height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = Green), shape = RoundedCornerShape(12.dp)) {
+                                Icon(imageVector = Icons.Outlined.MenuBook, contentDescription = "Pinjam", tint = Color.White, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(text = "Pinjam Buku", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             }
                         }
                     }
