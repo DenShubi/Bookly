@@ -35,7 +35,7 @@ import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Bookdetailscreen2(navController: NavController, bookId: String) {
+fun LendingScreen(navController: NavController, bookId: String) {
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }

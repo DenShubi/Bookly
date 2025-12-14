@@ -14,7 +14,6 @@ import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.PeminjamanScreen
-import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.ReviewListScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.ui.ReviewScreen
@@ -63,7 +62,7 @@ fun AppNav() {
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            com.example.bookly.ui.Bookdetailscreen2(navController = navController, bookId = bookId)
+            com.example.bookly.ui.LendingScreen(navController = navController, bookId = bookId)
         }
         composable("home") { Text(text = "Beranda Screen") }
         composable("peminjaman") { PeminjamanScreen(navController = navController) }
