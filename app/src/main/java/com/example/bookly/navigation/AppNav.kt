@@ -53,13 +53,6 @@ fun AppNav() {
             )
         }
         composable(
-            route = "book_borrow/{bookId}",
-            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
-        ) { backStackEntry ->
-            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            com.example.bookly.ui.Bookdetailscreen1(navController = navController, bookId = bookId)
-        }
-        composable(
             route = "book_borrow_confirm/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->

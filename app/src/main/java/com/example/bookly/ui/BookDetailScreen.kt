@@ -2,14 +2,16 @@ package com.example.bookly.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Favorite
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,11 +90,8 @@ fun BookDetailScreen(
                 }
                 errorMessage != null -> {
                     Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(16.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                        modifier = Modifier.align(Alignment.Center),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
                             text = errorMessage ?: "Terjadi kesalahan",
@@ -111,213 +110,213 @@ fun BookDetailScreen(
                 bookDetail != null -> {
                     val book = bookDetail!!
                     val isWishlisted = wishlistBooks.any { it.id == book.id }
+                    val wishlistBg = Color(0xFFF7E7CC)
+                    val wishlistTextColor = Color(0xFFDA9A3C)
 
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp)
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .verticalScroll(rememberScrollState())
+                            .padding(16.dp)
                     ) {
-                        item {
-                            // Book Cover Image
-                            AsyncImage(
-                                model = book.coverImageUrl,
-                                contentDescription = book.title,
+                        // Book Cover Image
+                        AsyncImage(
+                            model = book.coverImageUrl,
+                            contentDescription = book.title,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(220.dp)
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop,
+                            placeholder = painterResource(id = R.drawable.book_cover),
+                            error = painterResource(id = R.drawable.book_cover)
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Book Title
+                        Text(
+                            text = book.title,
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        // Author Name
+                        Text(
+                            text = book.author,
+                            fontSize = 14.sp,
+                            color = GreyText,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Category Chip and Rating Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val categoryColor = when (book.category?.lowercase()) {
+                                "novel" -> NovelColor
+                                "bisnis" -> BisnisColor
+                                "pendidikan" -> PendidikanColor
+                                "sejarah" -> SejarahColor
+                                else -> NovelColor
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(categoryColor, CircleShape)
+                                    .padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = book.category ?: "Novel",
+                                    color = Green.copy(alpha = 0.8f),
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            // Rating
+                            Icon(
+                                Icons.Default.Star,
+                                contentDescription = "Rating",
+                                tint = StarColor
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = String.format("%.1f", book.rating),
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        // Informasi Buku Card
+                        Card(
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFF6F6F6))
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Text(
+                                    text = "Informasi Buku",
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                BookInfoRow(label = "Penerbit", value = book.publisher ?: "-")
+                                BookInfoRow(label = "Tahun Terbit", value = book.publicationYear?.toString() ?: "-")
+                                BookInfoRow(label = "Halaman", value = book.pages?.let { "$it halaman" } ?: "-")
+                                BookInfoRow(label = "Bahasa", value = book.language ?: "-")
+                                BookInfoRow(
+                                    label = "Ketersediaan",
+                                    value = "${book.availableCopies} dari ${book.totalCopies} tersedia",
+                                    valueColor = if (book.availableCopies > 0) Green else Color.Red
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        // Deskripsi Section
+                        Text(
+                            text = "Deskripsi",
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = book.description ?: "-",
+                            color = GreyText,
+                            lineHeight = 20.sp
+                        )
+
+                        Spacer(modifier = Modifier.height(20.dp))
+
+                        // Action Buttons - Column layout with improved styling
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Wishlist Button
+                            ElevatedButton(
+                                onClick = {
+                                    val bookForWishlist = Book(
+                                        id = book.id,
+                                        title = book.title,
+                                        author = book.author,
+                                        rating = book.rating,
+                                        availability = "${book.availableCopies}/${book.totalCopies} tersedia",
+                                        category = book.category ?: "",
+                                        categoryColor = when (book.category?.lowercase()) {
+                                            "novel" -> NovelColor
+                                            "bisnis" -> BisnisColor
+                                            "pendidikan" -> PendidikanColor
+                                            "sejarah" -> SejarahColor
+                                            else -> NovelColor
+                                        },
+                                        coverImage = R.drawable.book_cover,
+                                        coverImageUrl = book.coverImageUrl
+                                    )
+                                    wishlistViewModel.toggleWishlist(bookForWishlist)
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .height(320.dp)
-                                    .clip(RoundedCornerShape(16.dp)),
-                                contentScale = ContentScale.Crop,
-                                placeholder = painterResource(id = R.drawable.book_cover),
-                                error = painterResource(id = R.drawable.book_cover)
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Book Title
-                            Text(
-                                text = book.title,
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(8.dp))
-
-                            // Author Name
-                            Text(
-                                text = book.author,
-                                fontSize = 16.sp,
-                                color = GreyText,
-                                textAlign = TextAlign.Center,
-                                modifier = Modifier.fillMaxWidth()
-                            )
-
-                            Spacer(modifier = Modifier.height(16.dp))
-
-                            // Category Chip and Rating Row
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.Center,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .height(50.dp),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = if (isWishlisted) Color(0xFFD91F11) else wishlistBg,
+                                    contentColor = if (isWishlisted) Color.White else wishlistTextColor
+                                )
                             ) {
-                                val categoryColor = when (book.category?.lowercase()) {
-                                    "novel" -> NovelColor
-                                    "bisnis" -> BisnisColor
-                                    "pendidikan" -> PendidikanColor
-                                    "sejarah" -> SejarahColor
-                                    else -> NovelColor
-                                }
-
-                                Box(
-                                    modifier = Modifier
-                                        .background(categoryColor, CircleShape)
-                                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                                ) {
-                                    Text(
-                                        text = book.category ?: "Novel",
-                                        color = Green.copy(alpha = 0.8f),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-
-                                Spacer(modifier = Modifier.width(16.dp))
-
-                                // Rating
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        Icons.Default.Star,
-                                        contentDescription = "Rating",
-                                        tint = StarColor,
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = String.format("%.1f", book.rating),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = Color.Black
-                                    )
-                                }
+                                Icon(
+                                    imageVector = if (isWishlisted) Icons.Filled.Favorite else Icons.Outlined.Favorite,
+                                    contentDescription = "Wishlist",
+                                    tint = if (isWishlisted) Color.White else wishlistTextColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = if (isWishlisted) "Hapus dari Wishlist" else "Tambah ke Wishlist",
+                                    fontWeight = FontWeight.Bold,
+                                    color = if (isWishlisted) Color.White else wishlistTextColor,
+                                    fontSize = 16.sp
+                                )
                             }
 
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Informasi Buku Section
-                            Text(
-                                text = "Informasi Buku",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            // Info Rows
-                            BookInfoRow(label = "Penerbit", value = book.publisher)
-                            BookInfoRow(label = "Tahun Terbit", value = book.publicationYear.toString())
-                            BookInfoRow(label = "Halaman", value = "${book.pages} halaman")
-                            BookInfoRow(label = "Bahasa", value = book.language)
-                            BookInfoRow(
-                                label = "Ketersediaan",
-                                value = "${book.availableCopies} dari ${book.totalCopies} tersedia",
-                                valueColor = if (book.availableCopies > 0) Green else Color.Red
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Deskripsi Section
-                            Text(
-                                text = "Deskripsi",
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-
-                            Spacer(modifier = Modifier.height(12.dp))
-
-                            Text(
-                                text = book.description,
-                                fontSize = 14.sp,
-                                color = GreyText,
-                                lineHeight = 20.sp,
-                                textAlign = TextAlign.Justify
-                            )
-
-                            Spacer(modifier = Modifier.height(24.dp))
-
-                            // Action Buttons
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            // Pinjam Buku Button - Navigate to confirmation screen
+                            Button(
+                                onClick = {
+                                    navController.navigate("book_borrow_confirm/${book.id}")
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(50.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Green),
+                                shape = RoundedCornerShape(12.dp),
+                                enabled = book.availableCopies > 0
                             ) {
-                                // Peminjaman Button -> navigate to Bookdetailscreen1 (borrow flow)
-                                Button(
-                                    onClick = { navController.navigate("book_borrow/${book.id}") },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Green,
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(12.dp),
-                                    enabled = book.availableCopies > 0
-                                ) {
-                                    Text(
-                                        text = "Pinjam Buku",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-
-                                // Wishlist Button
-                                Button(
-                                    onClick = {
-                                        val bookForWishlist = Book(
-                                            id = book.id,
-                                            title = book.title,
-                                            author = book.author,
-                                            rating = book.rating,
-                                            availability = "${book.availableCopies}/${book.totalCopies} tersedia",
-                                            category = book.category ?: "",
-                                            categoryColor = when (book.category?.lowercase()) {
-                                                "novel" -> NovelColor
-                                                "bisnis" -> BisnisColor
-                                                "pendidikan" -> PendidikanColor
-                                                "sejarah" -> SejarahColor
-                                                else -> NovelColor
-                                            },
-                                            coverImage = R.drawable.book_cover,
-                                            coverImageUrl = book.coverImageUrl
-                                        )
-                                        wishlistViewModel.toggleWishlist(bookForWishlist)
-                                    },
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .height(50.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = if (isWishlisted) Color(0xFFD91F11) else Green,
-                                        contentColor = Color.White
-                                    ),
-                                    shape = RoundedCornerShape(12.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = if (isWishlisted) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
-                                        contentDescription = if (isWishlisted) "Remove from Wishlist" else "Add to Wishlist",
-                                        modifier = Modifier.size(20.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = if (isWishlisted) "Hapus Wishlist" else "Tambah Wishlist",
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                Icon(
+                                    imageVector = Icons.Outlined.MenuBook,
+                                    contentDescription = "Pinjam",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Pinjam Buku",
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 16.sp
+                                )
                             }
-
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
@@ -347,7 +346,7 @@ fun BookDetailTopAppBar(navController: NavController) {
                 fontWeight = FontWeight.Bold
             )
         }
-        Divider(
+        HorizontalDivider(
             color = Color.LightGray.copy(alpha = 0.5f),
             thickness = 1.dp,
             modifier = Modifier.shadow(1.dp)

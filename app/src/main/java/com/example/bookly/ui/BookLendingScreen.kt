@@ -219,7 +219,7 @@ fun Bookdetailscreen2(navController: NavController, bookId: String) {
 
                             Spacer(modifier = Modifier.height(8.dp))
 
-                            // Confirm button (match Bookdetailscreen1 sizes/style)
+                            // Confirm button (match BookDetailScreen sizes/style)
 
                             Button(onClick = {
                                 scope.launch {
