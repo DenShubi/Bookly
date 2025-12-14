@@ -153,6 +153,53 @@ object UserRepository {
 
 
     // -----------------------------------------
+    // CHANGE PASSWORD
+    // -----------------------------------------
+    suspend fun changePassword(newPassword: String): Result<Unit> =
+        withContext(Dispatchers.IO) {
+            try {
+                val token = SupabaseClientProvider.currentAccessToken
+                    ?: return@withContext Result.failure(Exception("User not authenticated"))
+
+                val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/user"
+                val payload = JSONObject().apply {
+                    put("password", newPassword)
+                }
+
+                val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+                    requestMethod = "PUT"
+                    doOutput = true
+                    setRequestProperty("Content-Type", "application/json")
+                    setRequestProperty("Authorization", "Bearer $token")
+                    setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
+                }
+
+                val body = payload.toString().toByteArray()
+                conn.setFixedLengthStreamingMode(body.size)
+                conn.outputStream.use { it.write(body) }
+
+                val code = conn.responseCode
+                val resp = if (code in 200..299) {
+                    conn.inputStream?.bufferedReader()?.readText() ?: ""
+                } else {
+                    conn.errorStream?.bufferedReader()?.readText() ?: ""
+                }
+
+                if (DEBUG) Log.d("UserRepo", "Change password response $code: $resp")
+
+                if (code !in 200..299) {
+                    return@withContext Result.failure(Exception("Failed to change password: $resp"))
+                }
+
+                Result.success(Unit)
+            } catch (t: Throwable) {
+                if (DEBUG) Log.e("UserRepo", "Error changing password", t)
+                Result.failure(t)
+            }
+        }
+
+
+    // -----------------------------------------
     // LOGOUT
     // -----------------------------------------
     suspend fun signOut(): Result<Unit> = withContext(Dispatchers.IO) {
