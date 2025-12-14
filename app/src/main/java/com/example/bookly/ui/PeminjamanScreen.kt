@@ -7,8 +7,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
@@ -18,6 +22,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import com.example.bookly.supabase.LoansRepository
+import java.text.SimpleDateFormat
+import java.util.*
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
 
@@ -39,6 +51,19 @@ fun PeminjamanScreen(navController: NavController) {
         bottomBar = { BottomNavigationBar(navController = navController, selected = "peminjaman") },
         containerColor = Color.White
     ) { paddingValues ->
+        val loansState = remember { mutableStateOf<List<LoansRepository.LoanRow>>(emptyList()) }
+        val loading = remember { mutableStateOf(true) }
+
+        LaunchedEffect(Unit) {
+            val res = LoansRepository.getUserLoans()
+            if (res.isSuccess) loansState.value = res.getOrNull() ?: emptyList()
+            loading.value = false
+        }
+
+        val loans = loansState.value
+        val aktifCount = loans.count { it.status == "active" }
+        val overdueCount = loans.count { it.status == "overdue" }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -46,9 +71,33 @@ fun PeminjamanScreen(navController: NavController) {
                 .padding(horizontal = 16.dp)
         ) {
             Spacer(modifier = Modifier.height(16.dp))
-            SummaryCardsRow()
+            SummaryCardsRow(aktifCount.toString(), overdueCount.toString(), "0")
             Spacer(modifier = Modifier.height(16.dp))
-            EmptyPeminjamanState()
+
+            // Section header
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 4.dp)) {
+                Icon(imageVector = Icons.Outlined.MenuBook, contentDescription = null, tint = PeminjamanGreen)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Sedang Dipinjam (${aktifCount})", fontWeight = FontWeight.Bold, fontSize = 16.sp)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            if (loading.value) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else {
+                val activeLoans = loans.filter { it.status == "active" }
+                if (activeLoans.isEmpty()) {
+                    EmptyPeminjamanState()
+                } else {
+                    LazyColumn(modifier = Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(activeLoans) { loan ->
+                            LoanItem(loan = loan, onClick = { navController.navigate("peminjamanScreen1/${loan.id}") })
+                        }
+                    }
+                }
+            }
         }
     }
 }
@@ -79,14 +128,64 @@ private fun PeminjamanTopAppBar(navController: NavController) {
 }
 
 @Composable
-private fun SummaryCardsRow() {
+private fun SummaryCardsRow(bukuAktif: String = "0", terlambat: String = "0", denda: String = "0") {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        SummaryCard(title = "Buku Aktif", value = "0", backgroundColor = AktifBg, contentColor = AktifText, modifier = Modifier.weight(1f))
-        SummaryCard(title = "Terlambat", value = "0", backgroundColor = TerlambatBg, contentColor = TerlambatText, modifier = Modifier.weight(1f))
-        SummaryCard(title = "Denda (Rp)", value = "0", backgroundColor = DendaBg, contentColor = DendaText, modifier = Modifier.weight(1f))
+        SummaryCard(title = "Buku Aktif", value = bukuAktif, backgroundColor = AktifBg, contentColor = AktifText, modifier = Modifier.weight(1f))
+        SummaryCard(title = "Terlambat", value = terlambat, backgroundColor = TerlambatBg, contentColor = TerlambatText, modifier = Modifier.weight(1f))
+        SummaryCard(title = "Denda (Rp)", value = denda, backgroundColor = DendaBg, contentColor = DendaText, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun LoanItem(loan: LoansRepository.LoanRow, onClick: () -> Unit) {
+    val fmtDate = SimpleDateFormat("dd MMM yyyy", Locale("id"))
+    val fmtTime = SimpleDateFormat("HH:mm", Locale("id"))
+    val today = Date()
+    val due = loan.returnDeadline ?: today
+    val daysRemaining = ((due.time - today.time) / (1000 * 60 * 60 * 24)).toInt()
+    // determine if time-of-day is meaningful (non-midnight) in Asia/Jakarta
+    val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Jakarta"))
+    cal.time = due
+    val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
+    val minute = cal.get(java.util.Calendar.MINUTE)
+    val timeStr = if (hour != 0 || minute != 0) fmtTime.format(due) + " WIB" else null
+
+    Card(modifier = Modifier
+        .fillMaxWidth()
+        .clickable { onClick() }, shape = RoundedCornerShape(12.dp), elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                // thumbnail
+                Box(modifier = Modifier
+                    .size(64.dp)
+                    .background(color = Color(0xFFF0F0F0), shape = RoundedCornerShape(8.dp)))
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(text = loan.bookTitle.orEmpty(), fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(text = loan.bookAuthor.orEmpty(), fontSize = 13.sp, color = GreyText)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Box(modifier = Modifier.background(color = Color(0xFFE8F4EE), shape = RoundedCornerShape(12.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        Text(text = "Novel", color = PeminjamanGreen, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(imageVector = Icons.Outlined.CalendarToday, contentDescription = null, tint = PeminjamanGreen)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "Jatuh tempo:", color = GreyText)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(text = "${fmtDate.format(due)}${timeStr?.let { " • $it" } ?: ""} • ${if (daysRemaining >= 0) "$daysRemaining hari lagi" else "${-daysRemaining} hari terlambat"}", color = PeminjamanGreen)
+            }
+        }
     }
 }
 
