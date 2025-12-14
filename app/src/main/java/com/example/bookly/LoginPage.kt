@@ -23,7 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.navigation.compose.rememberNavController
-import com.example.bookly.supabase.SupabaseClientProvider // Import Provider
+import com.example.bookly.supabase.SupabaseClientProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
@@ -104,7 +104,7 @@ fun LoginScreen(navController: NavController) {
                     try {
                         val auth = SupabaseClientProvider.client.auth
 
-                        // 1. Login menggunakan Library (Sistem Baru)
+                        // 1. Login
                         auth.signInWith(Email) {
                             email = emailInput
                             password = passwordInput
@@ -112,12 +112,13 @@ fun LoginScreen(navController: NavController) {
 
                         val session = auth.currentSessionOrNull()
                         if (session != null) {
-                            // 2. [PENTING] Simpan Token ke Variabel Manual (Agar Wishlist & Profile jalan)
+                            // 2. Simpan Token Manual (untuk Wishlist/Profile)
                             SupabaseClientProvider.currentAccessToken = session.accessToken
 
                             Log.d("Login", "Sukses! Token disimpan manual.")
 
-                            navController.navigate("katalog_buku") {
+                            // 3. NAVIGASI KE HOME (BUKAN KATALOG LAGI)
+                            navController.navigate("home") {
                                 popUpTo("login") { inclusive = true }
                             }
                         } else {

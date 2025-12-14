@@ -13,10 +13,11 @@ import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
+import com.example.bookly.ui.HomeScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.ReviewListScreen
-import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.ui.ReviewScreen
+import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.viewmodel.WishlistViewModel
 
 @Composable
@@ -24,21 +25,27 @@ fun AppNav() {
     val navController = rememberNavController()
     val wishlistViewModel: WishlistViewModel = viewModel()
 
+    // Start Destination dimulai dari login
     NavHost(navController = navController, startDestination = "login") {
+
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }
-        composable("profile") {
-            ProfileScreen(
-                navController = navController,
-                wishlistViewModel = wishlistViewModel
-            )
+
+        // --- HOME SCREEN (BERANDA) ---
+        // Sebelumnya hanya Text dummy, sekarang memanggil Screen asli
+        composable("home") {
+            HomeScreen(navController = navController)
         }
+
+        // --- KATALOG BUKU ---
         composable("katalog_buku") {
             BookCatalogScreen(
                 navController = navController,
                 wishlistViewModel = wishlistViewModel
             )
         }
+
+        // --- DETAIL BUKU ---
         composable(
             route = "book_detail/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -50,13 +57,39 @@ fun AppNav() {
                 wishlistViewModel = wishlistViewModel
             )
         }
+
+        // --- PEMINJAMAN ---
+        composable("peminjaman") { PeminjamanScreen(navController = navController) }
+
+        // --- WISHLIST ---
+        composable("wishlist") {
+            WishlistScreen(
+                navController = navController,
+                wishlistViewModel = wishlistViewModel
+            )
+        }
+
+        // --- PROFILE ---
+        composable("profile") {
+            ProfileScreen(
+                navController = navController,
+                wishlistViewModel = wishlistViewModel
+            )
+        }
+
+        // --- NOTIFIKASI (Opsional) ---
+        composable("notifikasi") { Text(text = "Notifikasi Screen") }
+
+        // --- FITUR TAMBAHAN (Loan, Review, dll) ---
         composable(
             route = "book_borrow/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            // Menggunakan BookDetailScreen (sesuai kode asli Anda)
             com.example.bookly.ui.BookDetailScreen(navController = navController, bookId = bookId)
         }
+
         composable(
             route = "book_borrow_confirm/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -64,8 +97,7 @@ fun AppNav() {
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             com.example.bookly.ui.LendingScreen(navController = navController, bookId = bookId)
         }
-        composable("home") { Text(text = "Beranda Screen") }
-        composable("peminjaman") { PeminjamanScreen(navController = navController) }
+
         composable(
             route = "peminjamanScreen1/{loanId}",
             arguments = listOf(navArgument("loanId") { type = NavType.StringType })
@@ -73,6 +105,7 @@ fun AppNav() {
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.PeminjamanScreen1(navController = navController, loanId = loanId)
         }
+
         composable(
             route = "status_peminjaman/{loanId}",
             arguments = listOf(navArgument("loanId") { type = NavType.StringType })
@@ -80,30 +113,22 @@ fun AppNav() {
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.StatusPeminjaman(navController = navController, loanId = loanId)
         }
-        composable("wishlist") {
-            WishlistScreen(
-                navController = navController,
-                wishlistViewModel = wishlistViewModel
-            )
-        }
-        composable("notifikasi") { Text(text = "Notifikasi Screen") } // Kept for now, can be removed if not needed
 
+        // --- REVIEW LIST ---
         composable(
             route = "review/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            // Panggil Screen BARU (List)
             ReviewListScreen(navController = navController, bookId = bookId)
         }
 
+        // --- REVIEW FORM ---
         composable(
             route = "review_form/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            // Panggil Screen LAMA (Form Tulis)
-            // Catatan: Pastikan ReviewScreen Anda menerima navController
             ReviewScreen(navController = navController)
         }
     }
