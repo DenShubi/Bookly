@@ -18,11 +18,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
 import com.example.bookly.supabase.SupabaseClientProvider
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
@@ -38,7 +36,7 @@ fun LoginScreen(navController: NavController) {
 
     val coroutineScope = rememberCoroutineScope()
 
-    val isFormValid by derivedStateOf {
+    val isFormValid = remember(emailInput, passwordInput) {
         emailInput.isNotBlank() && passwordInput.isNotBlank()
     }
 
@@ -117,8 +115,15 @@ fun LoginScreen(navController: NavController) {
 
                             Log.d("Login", "Sukses! Token disimpan manual.")
 
-                            // 3. NAVIGASI KE HOME (BUKAN KATALOG LAGI)
-                            navController.navigate("home") {
+                            // 3. Check if admin and navigate accordingly
+                            val userEmail = auth.currentUserOrNull()?.email
+                            val destination = if (userEmail == "admin@mail.com") {
+                                "admin_dashboard"
+                            } else {
+                                "home"
+                            }
+
+                            navController.navigate(destination) {
                                 popUpTo("login") { inclusive = true }
                             }
                         } else {

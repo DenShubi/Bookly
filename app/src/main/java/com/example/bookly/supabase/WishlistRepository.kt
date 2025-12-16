@@ -1,14 +1,12 @@
 package com.example.bookly.supabase
 
 import android.util.Log
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Repository for managing wishlist operations with Supabase.
@@ -17,6 +15,17 @@ import java.net.URL
 object WishlistRepository {
     private const val DEBUG_LOG = true
     private const val TAG = "WishlistRepository"
+
+    @Serializable
+    data class WishlistRow(
+        @SerialName("book_id") val bookId: String
+    )
+
+    @Serializable
+    data class WishlistInsert(
+        @SerialName("user_id") val userId: String,
+        @SerialName("book_id") val bookId: String
+    )
 
     /**
      * Fetches all wishlist items for the currently authenticated user.
@@ -27,34 +36,14 @@ object WishlistRepository {
             val userId = getCurrentUserId()
                 ?: return@withContext Result.failure(Exception("User not authenticated"))
 
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/wishlist?select=book_id&user_id=eq.$userId"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) ->
-                    setRequestProperty(k, v)
-                }
-            }
+            val client = SupabaseClientProvider.client
+            val wishlistItems = client.from("wishlist").select {
+                filter { eq("user_id", userId) }
+            }.decodeList<WishlistRow>()
 
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(
-                if (code in 200..299) conn.inputStream else conn.errorStream
-            )).use { it.readText() }
+            val bookIds = wishlistItems.map { it.bookId }
 
-            if (DEBUG_LOG) Log.d(TAG, "getWishlist response code=$code body=$resp")
-
-            if (code !in 200..299) {
-                return@withContext Result.failure(Exception("Failed to fetch wishlist: $resp"))
-            }
-
-            val arr = JSONArray(resp)
-            val bookIds = mutableListOf<String>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                val bookId = obj.optString("book_id", "")
-                if (bookId.isNotBlank()) {
-                    bookIds.add(bookId)
-                }
-            }
+            if (DEBUG_LOG) Log.d(TAG, "getWishlist success: ${bookIds.size} items")
 
             Result.success(bookIds)
         } catch (t: Throwable) {
@@ -73,47 +62,25 @@ object WishlistRepository {
             val userId = getCurrentUserId()
                 ?: return@withContext Result.failure(Exception("User not authenticated"))
 
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/wishlist"
-            val payload = JSONObject().apply {
-                put("user_id", userId)
-                put("book_id", bookId)
+            val client = SupabaseClientProvider.client
+            val wishlistItem = WishlistInsert(userId = userId, bookId = bookId)
+
+            client.from("wishlist").insert(wishlistItem) {
+                // Handle duplicates gracefully - upsert will ignore if exists
+                select()
             }
 
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) ->
-                    setRequestProperty(k, v)
-                }
-                // Add Prefer header to handle conflicts gracefully
-                setRequestProperty("Prefer", "resolution=ignore-duplicates")
-            }
-
-            val bodyBytes = payload.toString().toByteArray(Charsets.UTF_8)
-            conn.setFixedLengthStreamingMode(bodyBytes.size)
-
-            if (DEBUG_LOG) Log.d(TAG, "addToWishlist body=$payload")
-
-            conn.outputStream.use { os ->
-                os.write(bodyBytes)
-                os.flush()
-            }
-
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(
-                if (code in 200..299) conn.inputStream else conn.errorStream
-            )).use { it.readText() }
-
-            if (DEBUG_LOG) Log.d(TAG, "addToWishlist response code=$code body=$resp")
-
-            if (code !in 200..299) {
-                return@withContext Result.failure(Exception("Failed to add to wishlist: $resp"))
-            }
+            if (DEBUG_LOG) Log.d(TAG, "addToWishlist success for bookId=$bookId")
 
             Result.success(Unit)
         } catch (t: Throwable) {
             if (DEBUG_LOG) Log.e(TAG, "Error adding to wishlist", t)
-            Result.failure(t)
+            // If error is duplicate key, treat as success
+            if (t.message?.contains("duplicate key", ignoreCase = true) == true) {
+                Result.success(Unit)
+            } else {
+                Result.failure(t)
+            }
         }
     }
 
@@ -127,26 +94,15 @@ object WishlistRepository {
             val userId = getCurrentUserId()
                 ?: return@withContext Result.failure(Exception("User not authenticated"))
 
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/wishlist?user_id=eq.$userId&book_id=eq.$bookId"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "DELETE"
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) ->
-                    setRequestProperty(k, v)
+            val client = SupabaseClientProvider.client
+            client.from("wishlist").delete {
+                filter {
+                    eq("user_id", userId)
+                    eq("book_id", bookId)
                 }
             }
 
-            val code = conn.responseCode
-            val resp = if (code in 200..299) {
-                conn.inputStream?.use { BufferedReader(InputStreamReader(it)).readText() } ?: ""
-            } else {
-                conn.errorStream?.use { BufferedReader(InputStreamReader(it)).readText() } ?: ""
-            }
-
-            if (DEBUG_LOG) Log.d(TAG, "removeFromWishlist response code=$code body=$resp")
-
-            if (code !in 200..299) {
-                return@withContext Result.failure(Exception("Failed to remove from wishlist: $resp"))
-            }
+            if (DEBUG_LOG) Log.d(TAG, "removeFromWishlist success for bookId=$bookId")
 
             Result.success(Unit)
         } catch (t: Throwable) {
@@ -161,27 +117,8 @@ object WishlistRepository {
      */
     private fun getCurrentUserId(): String? {
         return try {
-            val token = SupabaseClientProvider.currentAccessToken ?: return null
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/user"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-            }
-
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(
-                if (code in 200..299) conn.inputStream else conn.errorStream
-            )).use { it.readText() }
-
-            if (code in 200..299) {
-                val json = JSONObject(resp)
-                val userId = json.optString("id", "")
-                if (userId.isNotBlank()) userId else null
-            } else {
-                if (DEBUG_LOG) Log.w(TAG, "Failed to get user ID: code=$code resp=$resp")
-                null
-            }
+            val client = SupabaseClientProvider.client
+            client.auth.currentUserOrNull()?.id
         } catch (t: Throwable) {
             if (DEBUG_LOG) Log.e(TAG, "Error getting user ID", t)
             null
