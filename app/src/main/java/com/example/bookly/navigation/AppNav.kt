@@ -11,6 +11,7 @@ import androidx.navigation.navArgument
 import com.example.bookly.LoginScreen
 import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
+import com.example.bookly.ui.AdminDashboardScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.HomeScreen
@@ -30,6 +31,11 @@ fun AppNav() {
 
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }
+
+        // --- ADMIN DASHBOARD ---
+        composable("admin_dashboard") {
+            AdminDashboardScreen(navController = navController)
+        }
 
         // --- HOME SCREEN (BERANDA) ---
         // Sebelumnya hanya Text dummy, sekarang memanggil Screen asli

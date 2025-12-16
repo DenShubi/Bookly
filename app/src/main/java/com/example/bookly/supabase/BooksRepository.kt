@@ -86,7 +86,7 @@ object BooksRepository {
             val books = client.from("books").select {
                 // Pastikan ada kolom created_at di tabel books Supabase Anda
                 // Jika tidak ada, bisa ganti order by 'title' atau lainnya
-                order("created_at", Order.DESCENDING)
+                order("title", Order.DESCENDING)
                 limit(5)
             }.decodeList<BookRow>()
             Result.success(books)

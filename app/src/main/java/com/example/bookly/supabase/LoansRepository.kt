@@ -1,27 +1,47 @@
 package com.example.bookly.supabase
 
 import android.util.Log
+import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.postgrest.from
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONObject
-import java.io.BufferedReader
-import java.io.InputStreamReader
-import java.net.HttpURLConnection
-import java.net.URL
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 import java.text.SimpleDateFormat
 import java.util.*
 
 object LoansRepository {
     private const val TAG = "LoansRepository"
 
-    private fun detectMissingTableError(resp: String): Exception? {
-        return try {
-            if (resp.contains("PGRST205") || resp.contains("Could not find the table")) {
-                Exception("Tabel 'borrowing_records' tidak ditemukan di Supabase (PGRST205). Pastikan tabel 'borrowing_records' ada di schema public atau sesuaikan SUPABASE_URL.")
-            } else null
-        } catch (t: Throwable) { null }
-    }
+    @Serializable
+    data class BorrowingRecordRow(
+        val id: String = "",
+        @SerialName("user_id") val userId: String = "",
+        @SerialName("book_id") val bookId: String = "",
+        @SerialName("borrow_date") val borrowDate: String? = null,
+        @SerialName("due_date") val dueDate: String? = null,
+        @SerialName("return_date") val returnDate: String? = null,
+        val status: String = "active",
+        @SerialName("extension_count") val extensionCount: Int = 0,
+        @SerialName("max_extensions") val maxExtensions: Int = 2
+    )
+
+    @Serializable
+    data class BorrowingRecordInsert(
+        @SerialName("user_id") val userId: String,
+        @SerialName("book_id") val bookId: String,
+        @SerialName("borrow_date") val borrowDate: String,
+        @SerialName("due_date") val dueDate: String? = null
+    )
+
+    @Serializable
+    data class BorrowingRecordUpdate(
+        val status: String? = null,
+        @SerialName("return_date") val returnDate: String? = null,
+        @SerialName("due_date") val dueDate: String? = null,
+        @SerialName("extension_count") val extensionCount: Int? = null
+    )
+
 
     suspend fun borrowBook(bookId: String): Result<LoanRow> = withContext(Dispatchers.IO) {
         try {
@@ -32,80 +52,58 @@ object LoansRepository {
             val bookRow = bookResp.getOrNull() ?: return@withContext Result.failure(Exception("Buku tidak ditemukan"))
             if (bookRow.availableCopies <= 0) return@withContext Result.failure(Exception("Buku tidak tersedia"))
 
-            // prepare payload using your columns: borrow_date and due_date
-            val insertUrl = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records"
+            // prepare dates
             val duration = 14
-            val borrowDateStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(Date())
+            val borrowDateStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                timeZone = TimeZone.getTimeZone("UTC")
+            }.format(Date())
             val borrowDateForCalc = parseIsoToDate(borrowDateStr)
             val dueDateStr = borrowDateForCalc?.let {
                 Calendar.getInstance().apply { time = it; add(Calendar.DAY_OF_YEAR, duration) }.time.let { d ->
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(d)
+                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                        timeZone = TimeZone.getTimeZone("UTC")
+                    }.format(d)
                 }
             }
 
-            val payload = JSONObject().apply {
-                put("user_id", userId)
-                put("book_id", bookId)
-                put("borrow_date", borrowDateStr)
-                dueDateStr?.let { put("due_date", it) }
+            val client = SupabaseClientProvider.client
+            val insertData = BorrowingRecordInsert(
+                userId = userId,
+                bookId = bookId,
+                borrowDate = borrowDateStr,
+                dueDate = dueDateStr
+            )
+
+            // Insert and get response
+            val createdRecords = client.from("borrowing_records").insert(insertData) {
+                select()
+            }.decodeList<BorrowingRecordRow>()
+
+            val createdRecord = createdRecords.firstOrNull()
+                ?: return@withContext Result.failure(Exception("Failed to create borrowing record"))
+
+            // Build LoanRow
+            val borrowedAtDate = parseIsoToDate(createdRecord.borrowDate)
+            val returnDeadline = parseIsoToDate(createdRecord.dueDate) ?: borrowedAtDate?.let { d ->
+                Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
 
-            // POST loan
-            val insertConn = (URL(insertUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "POST"
-                doOutput = true
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-                setRequestProperty("Prefer", "return=representation")
-            }
-            val body = payload.toString().toByteArray(Charsets.UTF_8)
-            insertConn.setFixedLengthStreamingMode(body.size)
-            insertConn.outputStream.use { it.write(body) }
+            val bookRow2 = BooksRepository.getBookById(createdRecord.bookId).getOrNull()
+            val loanRow = LoanRow(
+                id = createdRecord.id,
+                bookId = createdRecord.bookId,
+                borrowedAt = borrowedAtDate,
+                returnDeadline = returnDeadline,
+                durationDays = duration,
+                bookTitle = bookRow2?.title,
+                bookAuthor = bookRow2?.author,
+                coverImageUrl = bookRow2?.coverImageUrl,
+                status = createdRecord.status,
+                extensionCount = createdRecord.extensionCount,
+                maxExtensions = createdRecord.maxExtensions
+            )
 
-            val insertCode = insertConn.responseCode
-            val insertResp = BufferedReader(InputStreamReader(if (insertCode in 200..299) insertConn.inputStream else insertConn.errorStream)).use { it.readText() }
-            if (insertCode !in 200..299) {
-                Log.w(TAG, "borrowBook insert failed: code=$insertCode resp=$insertResp")
-                detectMissingTableError(insertResp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception("Gagal membuat peminjaman: $insertResp"))
-            }
-
-            // parse created loan (expect array representation)
-            val createdLoanJson = try {
-                val arr = JSONArray(insertResp)
-                if (arr.length() > 0) arr.getJSONObject(0) else null
-            } catch (t: Throwable) { null }
-
-            // build LoanRow, prefer DB due_date if present
-            val loanRow = createdLoanJson?.let { obj ->
-                val id = obj.optString("id", "")
-                val bookIdVal = obj.optString("book_id", "")
-                val borrowDateResp = obj.optString("borrow_date", null)
-                val dueDateResp = obj.optString("due_date", null)
-                val status = obj.optString("status", "active")
-                val extensionCount = obj.optInt("extension_count", 0)
-                val maxExtensions = obj.optInt("max_extensions", 2)
-                val borrowedAtDate = parseIsoToDate(borrowDateResp)
-                val returnDeadline = parseIsoToDate(dueDateResp) ?: borrowedAtDate?.let { d ->
-                    Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
-                }
-                val bookResp2 = BooksRepository.getBookById(bookIdVal)
-                val bookRow2 = bookResp2.getOrNull()
-                LoanRow(
-                    id = id,
-                    bookId = bookIdVal,
-                    borrowedAt = borrowedAtDate,
-                    returnDeadline = returnDeadline,
-                    durationDays = duration,
-                    bookTitle = bookRow2?.title,
-                    bookAuthor = bookRow2?.author,
-                    coverImageUrl = bookRow2?.coverImageUrl,
-                    status = status,
-                    extensionCount = extensionCount,
-                    maxExtensions = maxExtensions
-                )
-            }
-
-            if (loanRow != null) Result.success(loanRow) else Result.failure(Exception("Failed parsing created loan"))
+            Result.success(loanRow)
         } catch (t: Throwable) {
             Log.e(TAG, "Error borrowing book", t)
             Result.failure(t)
@@ -115,104 +113,74 @@ object LoansRepository {
     suspend fun getUserLoans(): Result<List<LoanRow>> = withContext(Dispatchers.IO) {
         try {
             val userId = getCurrentUserId() ?: return@withContext Result.failure(Exception("User not authenticated"))
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records?select=*&user_id=eq.$userId&order=borrow_date.desc"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-            }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code !in 200..299) {
-                detectMissingTableError(resp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception("Failed fetching loans: $resp"))
-            }
 
-            val arr = JSONArray(resp)
-            val list = mutableListOf<LoanRow>()
-            for (i in 0 until arr.length()) {
-                val obj = arr.getJSONObject(i)
-                val id = obj.optString("id", "")
-                val bookIdVal = obj.optString("book_id", "")
-                val borrowDate = obj.optString("borrow_date", "")
-                val dueDateStr = obj.optString("due_date", null)
-                val status = obj.optString("status", "active")
-                val extensionCount = obj.optInt("extension_count", 0)
-                val maxExtensions = obj.optInt("max_extensions", 2)
-                val borrowedAtDate = parseIsoToDate(borrowDate)
+            val client = SupabaseClientProvider.client
+            val records = client.from("borrowing_records").select {
+                filter { eq("user_id", userId) }
+                order("borrow_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+            }.decodeList<BorrowingRecordRow>()
+
+            val list = records.map { record ->
+                val borrowedAtDate = parseIsoToDate(record.borrowDate)
                 val duration = 14
-                val returnDeadline = parseIsoToDate(dueDateStr) ?: borrowedAtDate?.let { d ->
+                val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAtDate?.let { d ->
                     Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
                 }
-                val bookResp2 = BooksRepository.getBookById(bookIdVal)
-                val bookRow2 = bookResp2.getOrNull()
-                list.add(
-                    LoanRow(
-                        id = id,
-                        bookId = bookIdVal,
-                        borrowedAt = borrowedAtDate,
-                        returnDeadline = returnDeadline,
-                        durationDays = duration,
-                        bookTitle = bookRow2?.title,
-                        bookAuthor = bookRow2?.author,
-                        coverImageUrl = bookRow2?.coverImageUrl,
-                        status = status,
-                        extensionCount = extensionCount,
-                        maxExtensions = maxExtensions
-                    )
+                val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
+
+                LoanRow(
+                    id = record.id,
+                    bookId = record.bookId,
+                    borrowedAt = borrowedAtDate,
+                    returnDeadline = returnDeadline,
+                    durationDays = duration,
+                    bookTitle = bookRow2?.title,
+                    bookAuthor = bookRow2?.author,
+                    coverImageUrl = bookRow2?.coverImageUrl,
+                    status = record.status,
+                    extensionCount = record.extensionCount,
+                    maxExtensions = record.maxExtensions
                 )
             }
 
             Result.success(list)
         } catch (t: Throwable) {
+            Log.e(TAG, "Error fetching user loans", t)
             Result.failure(t)
         }
     }
 
     suspend fun getLoanById(loanId: String): Result<LoanRow> = withContext(Dispatchers.IO) {
         try {
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records?id=eq.$loanId&select=*"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-            }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code !in 200..299) {
-                detectMissingTableError(resp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception(resp))
-            }
+            val client = SupabaseClientProvider.client
+            val record = client.from("borrowing_records").select {
+                filter { eq("id", loanId) }
+            }.decodeSingleOrNull<BorrowingRecordRow>()
+                ?: return@withContext Result.failure(Exception("Loan not found"))
 
-            val arr = JSONArray(resp)
-            if (arr.length() == 0) return@withContext Result.failure(Exception("Loan not found"))
-            val obj = arr.getJSONObject(0)
-            val id = obj.optString("id", "")
-            val bookIdVal = obj.optString("book_id", "")
-            val borrowedAt = parseIsoToDate(obj.optString("borrow_date", null))
-            val dueDateStr = obj.optString("due_date", null)
-            val status = obj.optString("status", "active")
-            val extensionCount = obj.optInt("extension_count", 0)
-            val maxExtensions = obj.optInt("max_extensions", 2)
+            val borrowedAt = parseIsoToDate(record.borrowDate)
             val duration = 14
-            val returnDeadline = parseIsoToDate(dueDateStr) ?: borrowedAt?.let { d ->
+            val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAt?.let { d ->
                 Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
-            val bookResp2 = BooksRepository.getBookById(bookIdVal)
-            val bookRow2 = bookResp2.getOrNull()
+            val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
+
             val loanRow = LoanRow(
-                id = id,
-                bookId = bookIdVal,
+                id = record.id,
+                bookId = record.bookId,
                 borrowedAt = borrowedAt,
                 returnDeadline = returnDeadline,
                 durationDays = duration,
                 bookTitle = bookRow2?.title,
                 bookAuthor = bookRow2?.author,
                 coverImageUrl = bookRow2?.coverImageUrl,
-                status = status,
-                extensionCount = extensionCount,
-                maxExtensions = maxExtensions
+                status = record.status,
+                extensionCount = record.extensionCount,
+                maxExtensions = record.maxExtensions
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
+            Log.e(TAG, "Error getting loan by ID", t)
             Result.failure(t)
         }
     }
@@ -220,79 +188,57 @@ object LoansRepository {
     suspend fun getActiveLoan(): Result<LoanRow> = withContext(Dispatchers.IO) {
         try {
             val userId = getCurrentUserId() ?: return@withContext Result.failure(Exception("User not authenticated"))
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records?select=*&user_id=eq.$userId&order=borrow_date.desc&limit=1"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-            }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code !in 200..299) {
-                detectMissingTableError(resp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception(resp))
-            }
 
-            val arr = JSONArray(resp)
-            if (arr.length() == 0) return@withContext Result.failure(Exception("No active loan"))
-            val obj = arr.getJSONObject(0)
-            val id = obj.optString("id", "")
-            val bookIdVal = obj.optString("book_id", "")
-            val borrowedAt = parseIsoToDate(obj.optString("borrow_date", null))
-            val dueDateStr = obj.optString("due_date", null)
-            val status = obj.optString("status", "active")
-            val extensionCount = obj.optInt("extension_count", 0)
-            val maxExtensions = obj.optInt("max_extensions", 2)
+            val client = SupabaseClientProvider.client
+            val record = client.from("borrowing_records").select {
+                filter { eq("user_id", userId) }
+                order("borrow_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                limit(1)
+            }.decodeSingleOrNull<BorrowingRecordRow>()
+                ?: return@withContext Result.failure(Exception("No active loan"))
+
+            val borrowedAt = parseIsoToDate(record.borrowDate)
             val duration = 14
-            val returnDeadline = parseIsoToDate(dueDateStr) ?: borrowedAt?.let { d ->
+            val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAt?.let { d ->
                 Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
-            val bookResp2 = BooksRepository.getBookById(bookIdVal)
-            val bookRow2 = bookResp2.getOrNull()
+            val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
+
             val loanRow = LoanRow(
-                id = id,
-                bookId = bookIdVal,
+                id = record.id,
+                bookId = record.bookId,
                 borrowedAt = borrowedAt,
                 returnDeadline = returnDeadline,
                 durationDays = duration,
                 bookTitle = bookRow2?.title,
                 bookAuthor = bookRow2?.author,
                 coverImageUrl = bookRow2?.coverImageUrl,
-                status = status,
-                extensionCount = extensionCount,
-                maxExtensions = maxExtensions
+                status = record.status,
+                extensionCount = record.extensionCount,
+                maxExtensions = record.maxExtensions
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
+            Log.e(TAG, "Error getting active loan", t)
             Result.failure(t)
         }
     }
 
-    suspend fun returnBook(loanId: String, bookId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun returnBook(loanId: String, @Suppress("UNUSED_PARAMETER") bookId: String): Result<Unit> = withContext(Dispatchers.IO) {
         try {
-            // mark loan as returned; server trigger will update book availability
-            val payload = JSONObject().apply {
-                put("status", "returned")
-                put("return_date", SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date()))
-            }
-            val patchUrl = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records?id=eq.$loanId"
-            val conn = (URL(patchUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "PATCH"
-                doOutput = true
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-                setRequestProperty("Prefer", "return=representation")
-            }
-            val body = payload.toString().toByteArray(Charsets.UTF_8)
-            conn.setFixedLengthStreamingMode(body.size)
-            conn.outputStream.use { it.write(body) }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code !in 200..299) {
-                detectMissingTableError(resp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception("Failed updating loan return: $resp"))
+            val client = SupabaseClientProvider.client
+            val updateData = BorrowingRecordUpdate(
+                status = "returned",
+                returnDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+            )
+
+            client.from("borrowing_records").update(updateData) {
+                filter { eq("id", loanId) }
             }
 
             Result.success(Unit)
         } catch (t: Throwable) {
+            Log.e(TAG, "Error returning book", t)
             Result.failure(t)
         }
     }
@@ -302,33 +248,31 @@ object LoansRepository {
             val loanRes = getLoanById(loanId)
             val loan = loanRes.getOrNull() ?: return@withContext Result.failure(Exception("Loan not found"))
             val currentReturn = loan.returnDeadline ?: return@withContext Result.failure(Exception("No return deadline available"))
-            if ((loan.extensionCount ?: 0) >= (loan.maxExtensions ?: 2)) return@withContext Result.failure(Exception("Maximum extensions reached"))
-            val newReturn = Calendar.getInstance().apply { time = currentReturn; add(Calendar.DAY_OF_YEAR, loan.durationDays) }.time
+            if ((loan.extensionCount ?: 0) >= (loan.maxExtensions ?: 2)) {
+                return@withContext Result.failure(Exception("Maximum extensions reached"))
+            }
 
-            // update due_date and increment extension_count
-            val patchUrl = "${SupabaseClientProvider.SUPABASE_URL}/rest/v1/borrowing_records?id=eq.$loanId"
+            val newReturn = Calendar.getInstance().apply {
+                time = currentReturn
+                add(Calendar.DAY_OF_YEAR, loan.durationDays)
+            }.time
             val newCount = (loan.extensionCount ?: 0) + 1
-            val payload = JSONObject().apply {
-                put("due_date", SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply { timeZone = TimeZone.getTimeZone("UTC") }.format(newReturn))
-                put("extension_count", newCount)
+
+            val client = SupabaseClientProvider.client
+            val updateData = BorrowingRecordUpdate(
+                dueDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(newReturn),
+                extensionCount = newCount
+            )
+
+            client.from("borrowing_records").update(updateData) {
+                filter { eq("id", loanId) }
             }
-            val conn = (URL(patchUrl).openConnection() as HttpURLConnection).apply {
-                requestMethod = "PATCH"
-                doOutput = true
-                SupabaseClientProvider.headersWithAuth().forEach { (k, v) -> setRequestProperty(k, v) }
-                setRequestProperty("Prefer", "return=representation")
-            }
-            val body = payload.toString().toByteArray(Charsets.UTF_8)
-            conn.setFixedLengthStreamingMode(body.size)
-            conn.outputStream.use { it.write(body) }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code !in 200..299) {
-                detectMissingTableError(resp)?.let { return@withContext Result.failure(it) }
-                return@withContext Result.failure(Exception("Failed extending loan: $resp"))
-            }
+
             Result.success(Unit)
         } catch (t: Throwable) {
+            Log.e(TAG, "Error extending loan", t)
             Result.failure(t)
         }
     }
@@ -372,23 +316,10 @@ object LoansRepository {
 
     private fun getCurrentUserId(): String? {
         return try {
-            val token = SupabaseClientProvider.currentAccessToken ?: return null
-            val url = "${SupabaseClientProvider.SUPABASE_URL}/auth/v1/user"
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
-                requestMethod = "GET"
-                setRequestProperty("Authorization", "Bearer $token")
-                setRequestProperty("apikey", SupabaseClientProvider.SUPABASE_ANON_KEY)
-            }
-            val code = conn.responseCode
-            val resp = BufferedReader(InputStreamReader(if (code in 200..299) conn.inputStream else conn.errorStream)).use { it.readText() }
-            if (code in 200..299) {
-                val json = JSONObject(resp)
-                val userId = json.optString("id", "")
-                if (userId.isNotBlank()) userId else null
-            } else {
-                null
-            }
+            val client = SupabaseClientProvider.client
+            client.auth.currentUserOrNull()?.id
         } catch (t: Throwable) {
+            Log.e(TAG, "Error getting current user ID", t)
             null
         }
     }
