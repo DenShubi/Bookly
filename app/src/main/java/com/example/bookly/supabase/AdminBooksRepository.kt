@@ -3,6 +3,7 @@ package com.example.bookly.supabase
 import android.util.Log
 import io.github.jan.supabase.postgrest.from
 import io.github.jan.supabase.postgrest.query.Order
+import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -58,6 +59,29 @@ object AdminBooksRepository {
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e(TAG, "Error inserting book", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Upload book cover image to Supabase storage
+     * @param byteArray Image data as byte array
+     * @param fileName Unique file name for the image
+     * @return Public URL of the uploaded image
+     */
+    suspend fun uploadBookCover(byteArray: ByteArray, fileName: String): Result<String> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+            val bucket = client.storage.from("book-covers")
+
+            // Upload the image
+            bucket.upload(fileName, byteArray)
+
+            // Get the public URL
+            val publicUrl = bucket.publicUrl(fileName)
+            Result.success(publicUrl)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error uploading book cover", e)
             Result.failure(e)
         }
     }

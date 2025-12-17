@@ -1,7 +1,6 @@
 package com.example.bookly.ui
 
 import android.net.Uri
-import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
@@ -32,7 +31,6 @@ import coil.compose.AsyncImage
 import com.example.bookly.viewmodel.AdminAddBookViewModel
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.filled.*
-import java.io.ByteArrayOutputStream
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -132,8 +130,10 @@ fun AdminAddBookScreen(
                 // Image Upload Field
                 ImageUploadField(
                     label = "Gambar Buku",
-                    imageUrl = uiState.coverImageUrl,
-                    onUrlChange = { viewModel.updateCoverImageUrl(it) }
+                    imageUri = uiState.imageUri,
+                    onImageSelected = { uri, bytes ->
+                        viewModel.updateImage(uri, bytes)
+                    }
                 )
 
                 // Publisher Field
@@ -395,50 +395,47 @@ fun DropdownField(
 @Composable
 fun ImageUploadField(
     label: String,
-    imageUrl: String,
-    onUrlChange: (String) -> Unit
+    imageUri: Uri?,
+    onImageSelected: (Uri?, ByteArray?) -> Unit
 ) {
     val context = LocalContext.current
     var showError by remember { mutableStateOf<String?>(null) }
 
-    // 🔹 Local preview state (Uri ONLY for UI)
-    var previewUri by remember { mutableStateOf<Uri?>(null) }
-
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let {
-            previewUri = it // ✅ preview uses Uri
+        if (uri == null) {
+            onImageSelected(null, null)
+            return@rememberLauncherForActivityResult
+        }
 
-            try {
-                val bytes = context.contentResolver
-                    .openInputStream(it)
-                    ?.use { stream -> stream.readBytes() }
+        try {
+            // Read image as bytes
+            val bytes = context.contentResolver
+                .openInputStream(uri)
+                ?.use { stream -> stream.readBytes() }
 
-                if (bytes == null) {
-                    showError = "Gagal membaca file gambar"
-                    return@let
-                }
-
-                if (bytes.size > 5 * 1024 * 1024) {
-                    showError = "Ukuran file maksimal 5MB!"
-                    return@let
-                }
-
-                val mimeType =
-                    context.contentResolver.getType(it) ?: "image/jpeg"
-                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                val base64String = "data:$mimeType;base64,$base64"
-
-                // 🔹 still send Base64 to ViewModel
-                onUrlChange(base64String)
-                showError = null
-            } catch (e: Exception) {
-                showError = "Error: ${e.message}"
+            if (bytes == null) {
+                showError = "Gagal membaca file gambar"
+                return@rememberLauncherForActivityResult
             }
+
+            // Check file size (max 5MB)
+            if (bytes.size > 5 * 1024 * 1024) {
+                showError = "Ukuran file maksimal 5MB!"
+                return@rememberLauncherForActivityResult
+            }
+
+            // Store URI for preview and bytes for upload
+            onImageSelected(uri, bytes)
+            showError = null
+        } catch (e: Exception) {
+            showError = "Error: ${e.message}"
+            onImageSelected(null, null)
         }
     }
 
+    // Error dialog
     if (showError != null) {
         AlertDialog(
             onDismissRequest = { showError = null },
@@ -460,14 +457,14 @@ fun ImageUploadField(
             color = Color.Black
         )
 
-        // ✅ FIXED PREVIEW
-        if (previewUri != null) {
+        // Image Preview
+        if (imageUri != null) {
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
-                    model = previewUri,
+                    model = imageUri,
                     contentDescription = "Preview",
                     modifier = Modifier
                         .width(128.dp)
@@ -479,6 +476,7 @@ fun ImageUploadField(
             }
         }
 
+        // Upload Button
         Button(
             onClick = { imagePickerLauncher.launch("image/*") },
             modifier = Modifier.fillMaxWidth(),
@@ -491,7 +489,7 @@ fun ImageUploadField(
         ) {
             Icon(Icons.Default.Upload, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text(if (imageUrl.isNotEmpty()) "Ubah Gambar" else "Upload Gambar")
+            Text(if (imageUri != null) "Ubah Gambar" else "Upload Gambar")
         }
     }
 }
