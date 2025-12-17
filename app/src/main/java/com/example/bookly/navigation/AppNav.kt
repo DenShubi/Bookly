@@ -26,7 +26,7 @@ fun AppNav() {
     val wishlistViewModel: WishlistViewModel = viewModel()
 
     // Start Destination dimulai dari login
-    NavHost(navController = navController, startDestination = "login") {
+    NavHost(navController = navController, startDestination = "profile") {
 
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }

@@ -1,46 +1,37 @@
 package com.example.bookly
-
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
+import androidx.navigation.compose.rememberNavController
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
-import kotlinx.coroutines.launch
-import androidx.compose.runtime.rememberCoroutineScope
-import com.example.bookly.supabase.UserRepository
-import com.example.bookly.supabase.supabase
-import com.example.bookly.ui.BottomNavigationBar
-import com.example.bookly.viewmodel.WishlistViewModel
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import androidx.navigation.compose.rememberNavController
+import coil.compose.AsyncImage
+import com.example.bookly.supabase.UserRepository
+import com.example.bookly.supabase.supabase // Pastikan ini mengarah ke client supabase anda
+import com.example.bookly.ui.BottomNavigationBar
+import com.example.bookly.viewmodel.WishlistViewModel
+import kotlinx.coroutines.launch
+import androidx.compose.ui.tooling.preview.Preview
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -48,173 +39,200 @@ fun ProfileScreen(
     navController: NavController,
     wishlistViewModel: WishlistViewModel? = null
 ) {
+    val coroutineScope = rememberCoroutineScope()
+    val context = LocalContext.current
+
+    // States
+    var fullName by remember { mutableStateOf<String?>(null) }
+    var email by remember { mutableStateOf<String?>(null) }
+    var profileUrl by remember { mutableStateOf<String?>(null) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    var isUploading by remember { mutableStateOf(false) }
+
+    // Logic Pilih Gambar
+    val launcher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            coroutineScope.launch {
+                isUploading = true
+                // 1. & 2. Pilih & Upload ke Supabase
+                val result = UserRepository.uploadProfilePicture(it, context)
+                result.onSuccess { url ->
+                    // 3. Simpan URL ke Database (logic ini sebaiknya di UserRepository)
+                    profileUrl = url
+                }
+                isUploading = false
+            }
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        val result = UserRepository.getUserProfile()
+        result.onSuccess { profile ->
+            fullName = profile.fullName
+            email = profile.email
+            profileUrl = profile.avatarUrl // Ambil URL dari DB
+        }.onFailure {
+            val user = supabase.auth.currentUserOrNull()
+            email = user?.email
+            fullName = user?.userMetadata?.get("full_name")?.toString()
+        }
+    }
+
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text("Edit Profile") },
+            CenterAlignedTopAppBar(
+                title = { Text("Edit Profil", fontWeight = FontWeight.Bold, color = Color(0xFF2E8B57)) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Kembali")
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
-                    titleContentColor = MaterialTheme.colorScheme.onBackground
-                )
+                }
             )
         },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "profile") }
     ) { paddingValues ->
-        val coroutineScope = rememberCoroutineScope()
-        var fullName by remember { mutableStateOf<String?>(null) }
-        var email by remember { mutableStateOf<String?>(null) }
-        var showLogoutDialog by remember { mutableStateOf(false) }
-        var isLoading by remember { mutableStateOf(true) }
-
-        LaunchedEffect(Unit) {
-            // Fetch user profile from database
-            val result = UserRepository.getUserProfile()
-            result.onSuccess { profile ->
-                fullName = profile.fullName
-                email = profile.email
-                isLoading = false
-            }.onFailure {
-                // Fallback to auth metadata if database fetch fails
-                val user = supabase.auth.currentUserOrNull()
-                email = user?.email
-                fullName = user?.userMetadata?.get("full_name")
-                isLoading = false
-            }
-        }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
-                .verticalScroll(rememberScrollState()),
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            ProfileImageSection()
-            Spacer(modifier = Modifier.height(32.dp))
-            ProfileDetailsSection(fullName = fullName, email = email)
-            Spacer(modifier = Modifier.height(32.dp))
-            SettingsSection(
-                onChangePasswordClick = { navController.navigate("change_password") },
-                onLogoutClick = { showLogoutDialog = true }
+            // Section Foto Profil
+            ProfileImageSection(
+                imageUrl = profileUrl,
+                isUploading = isUploading,
+                onAddImageClick = { launcher.launch("image/*") }
             )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // 1. Detail Profil
+            SectionTitle("Detail Profil")
+            CardContainer {
+                InfoRow(icon = Icons.Default.Email, label = "Email", value = email ?: "pk@mail.com")
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                InfoRow(icon = Icons.Default.Person, label = "Nama", value = fullName ?: "Pascal Love Khansa")
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 2. Aktivitas Peminjaman
+            SectionTitle("Aktivitas Peminjaman")
+            CardContainer {
+                SettingsRow(
+                    icon = Icons.Default.AttachMoney,
+                    text = "Daftar Denda",
+                    onClick = { navController.navigate("daftar_denda") } // Navigasi ke Daftar Denda
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                SettingsRow(icon = Icons.Default.History, text = "Riwayat Peminjaman")
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 3. Verifikasi Identitas
+            SectionTitle("Verifikasi Identitas")
+            CardContainer {
+                SettingsRow(icon = Icons.Default.VerifiedUser, text = "Verifikasi Identitas")
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // 4. Pengaturan
+            SectionTitle("Pengaturan")
+            CardContainer {
+                SettingsRow(icon = Icons.Default.Lock, text = "Ubah Kata Sandi", onClick = { navController.navigate("change_password") })
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp), thickness = 0.5.dp)
+                SettingsRow(
+                    icon = Icons.AutoMirrored.Filled.ExitToApp,
+                    text = "Keluar",
+                    iconTint = Color.Red,
+                    textColor = Color.Red,
+                    onClick = { showLogoutDialog = true }
+                )
+            }
         }
 
-        // Logout Confirmation Dialog
         if (showLogoutDialog) {
             AlertDialog(
                 onDismissRequest = { showLogoutDialog = false },
                 title = { Text("Konfirmasi Logout") },
                 text = { Text("Apakah Anda yakin ingin keluar?") },
                 confirmButton = {
-                    TextButton(
-                        onClick = {
-                            showLogoutDialog = false
-                            coroutineScope.launch {
-                                UserRepository.signOut()
-                                wishlistViewModel?.clearWishlist()
-                                navController.navigate("login") {
-                                    popUpTo(0)
-                                }
-                            }
+                    TextButton(onClick = {
+                        coroutineScope.launch {
+                            UserRepository.signOut()
+                            navController.navigate("login") { popUpTo(0) }
                         }
-                    ) {
-                        Text("Keluar", color = Color.Red)
-                    }
+                    }) { Text("Keluar", color = Color.Red) }
                 },
-                dismissButton = {
-                    TextButton(onClick = { showLogoutDialog = false }) {
-                        Text("Batal")
-                    }
-                }
+                dismissButton = { TextButton(onClick = { showLogoutDialog = false }) { Text("Batal") } }
             )
         }
     }
 }
 
 @Composable
-fun ProfileImageSection() {
-    Box(modifier = Modifier.size(140.dp)) {
-        Image(
-            painter = painterResource(id = R.drawable.herp),
-            contentDescription = "Profile Picture",
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
-                .clip(CircleShape)
-                .border(2.dp, Color(0xFF2E8B57), CircleShape)
-        )
-        Icon(
-            imageVector = Icons.Default.PhotoCamera,
-            contentDescription = "Ubah Foto",
-            tint = Color.White,
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(8.dp)
-                .background(Color(0xFF2E8B57), CircleShape)
-                .padding(8.dp)
-                .size(24.dp)
-        )
-    }
-}
-
-@Composable
-fun ProfileDetailsSection(fullName: String? = null, email: String? = null) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Detail Profil", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, Color.LightGray)
-        ) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                InfoRow(icon = Icons.Default.Email, label = "Email", value = email ?: "-")
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                InfoRow(icon = Icons.Default.Person, label = "Nama", value = fullName ?: "-")
+fun ProfileImageSection(imageUrl: String?, isUploading: Boolean, onAddImageClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(120.dp)
+            .clickable { if (!isUploading) onAddImageClick() },
+        contentAlignment = Alignment.BottomEnd
+    ) {
+        if (imageUrl != null) {
+            AsyncImage(
+                model = imageUrl,
+                contentDescription = "Profile Picture",
+                modifier = Modifier.fillMaxSize().clip(CircleShape).border(2.dp, Color(0xFF2E8B57), CircleShape),
+                contentScale = ContentScale.Crop
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize().clip(CircleShape).border(2.dp, Color(0xFF2E8B57), CircleShape).background(Color.White),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.Person, contentDescription = null, modifier = Modifier.size(60.dp), tint = Color.LightGray)
             }
+        }
+
+        if (isUploading) {
+            CircularProgressIndicator(modifier = Modifier.matchParentSize(), color = Color(0xFF2E8B57))
+        }
+
+        Box(
+            modifier = Modifier.size(32.dp).background(Color(0xFF2E8B57), CircleShape).padding(6.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White, modifier = Modifier.size(18.dp))
         }
     }
 }
 
 @Composable
-fun SettingsSection(
-    onChangePasswordClick: () -> Unit = {},
-    onLogoutClick: () -> Unit = {}
-) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text("Pengaturan", fontWeight = FontWeight.Bold, fontSize = 18.sp)
-        Spacer(modifier = Modifier.height(8.dp))
-        Card(
-            shape = RoundedCornerShape(12.dp),
-            modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-            border = BorderStroke(1.dp, Color.LightGray)
-        ) {
-            Column(modifier = Modifier.padding(vertical = 8.dp)) {
-                SettingsRow(icon = Icons.Default.Notifications, text = "Atur Notifikasi")
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                SettingsRow(
-                    icon = Icons.Default.MoreHoriz,
-                    text = "Ubah Kata Sandi",
-                    onClick = onChangePasswordClick
-                )
-                HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Filled.ExitToApp,
-                    text = "Keluar",
-                    iconTint = Color.Red,
-                    textColor = Color.Red,
-                    onClick = onLogoutClick
-                )
-            }
-        }
+fun SectionTitle(title: String) {
+    Text(
+        text = title,
+        fontWeight = FontWeight.Bold,
+        fontSize = 14.sp,
+        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp)
+    )
+}
+
+@Composable
+fun CardContainer(content: @Composable ColumnScope.() -> Unit) {
+    Card(
+        shape = RoundedCornerShape(12.dp),
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        border = BorderStroke(1.dp, Color(0xFFEEEEEE)),
+        elevation = CardDefaults.cardElevation(0.dp)
+    ) {
+        Column(content = content)
     }
 }
 
@@ -226,11 +244,11 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = label, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(text = label, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(imageVector = icon, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = label, color = Color.Gray, fontSize = 14.sp)
         Spacer(modifier = Modifier.weight(1f))
-        Text(text = value, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+        Text(text = value, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.Black)
     }
 }
 
@@ -238,8 +256,8 @@ fun InfoRow(icon: ImageVector, label: String, value: String) {
 fun SettingsRow(
     icon: ImageVector,
     text: String,
-    iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
-    textColor: Color = MaterialTheme.colorScheme.onSurface,
+    iconTint: Color = Color.Gray,
+    textColor: Color = Color.Black,
     onClick: () -> Unit = {}
 ) {
     Row(
@@ -249,16 +267,31 @@ fun SettingsRow(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Icon(imageVector = icon, contentDescription = text, tint = iconTint)
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(text, color = textColor)
+        Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(20.dp))
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(text = text, color = textColor, fontSize = 14.sp)
         Spacer(modifier = Modifier.weight(1f))
-        Icon(imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Color.LightGray
+        )
     }
 }
 
-@Preview(showBackground = true)
+@Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun ProfileScreenPreview() {
-    ProfileScreen(navController = rememberNavController())
+    // NavController dummy agar tidak error saat preview
+    val navController = rememberNavController()
+
+    MaterialTheme {
+        // Mocking data untuk preview agar terlihat seperti di gambar
+        Surface(color = Color(0xFFF8F8F8)) {
+            ProfileScreen(navController = navController)
+        }
+    }
 }
+
+// InfoRow dan SettingsRow tetap sama dengan kode Anda sebelumnya,
+// hanya sedikit penyesuaian padding agar mirip UI desain.
