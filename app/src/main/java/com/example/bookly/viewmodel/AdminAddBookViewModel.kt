@@ -1,5 +1,6 @@
 package com.example.bookly.viewmodel
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bookly.supabase.AdminBooksRepository
@@ -20,7 +21,8 @@ data class AdminAddBookUiState(
     val author: String = "",
     val category: String = "Novel",
     val categoryColor: String = "#a5ed99",
-    val coverImageUrl: String = "",
+    val imageUri: Uri? = null,
+    val imageBytes: ByteArray? = null,
     val publisher: String = "",
     val year: Int = 2024,
     val language: String = "Indonesia",
@@ -29,7 +31,52 @@ data class AdminAddBookUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
     val isSaved: Boolean = false
-)
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (javaClass != other?.javaClass) return false
+
+        other as AdminAddBookUiState
+
+        if (title != other.title) return false
+        if (author != other.author) return false
+        if (category != other.category) return false
+        if (categoryColor != other.categoryColor) return false
+        if (imageUri != other.imageUri) return false
+        if (imageBytes != null) {
+            if (other.imageBytes == null) return false
+            if (!imageBytes.contentEquals(other.imageBytes)) return false
+        } else if (other.imageBytes != null) return false
+        if (publisher != other.publisher) return false
+        if (year != other.year) return false
+        if (language != other.language) return false
+        if (totalCopies != other.totalCopies) return false
+        if (description != other.description) return false
+        if (isLoading != other.isLoading) return false
+        if (errorMessage != other.errorMessage) return false
+        if (isSaved != other.isSaved) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = title.hashCode()
+        result = 31 * result + author.hashCode()
+        result = 31 * result + category.hashCode()
+        result = 31 * result + categoryColor.hashCode()
+        result = 31 * result + (imageUri?.hashCode() ?: 0)
+        result = 31 * result + (imageBytes?.contentHashCode() ?: 0)
+        result = 31 * result + publisher.hashCode()
+        result = 31 * result + year
+        result = 31 * result + language.hashCode()
+        result = 31 * result + totalCopies
+        result = 31 * result + description.hashCode()
+        result = 31 * result + isLoading.hashCode()
+        result = 31 * result + (errorMessage?.hashCode() ?: 0)
+        result = 31 * result + isSaved.hashCode()
+        return result
+    }
+}
 
 class AdminAddBookViewModel : ViewModel() {
     private val _uiState = MutableStateFlow(AdminAddBookUiState())
@@ -64,8 +111,11 @@ class AdminAddBookViewModel : ViewModel() {
         }
     }
 
-    fun updateCoverImageUrl(url: String) {
-        _uiState.value = _uiState.value.copy(coverImageUrl = url)
+    fun updateImage(uri: Uri?, bytes: ByteArray?) {
+        _uiState.value = _uiState.value.copy(
+            imageUri = uri,
+            imageBytes = bytes
+        )
     }
 
     fun updatePublisher(publisher: String) {
@@ -109,6 +159,23 @@ class AdminAddBookViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
+            // Upload image if provided
+            var coverImageUrl = ""
+            if (state.imageBytes != null) {
+                val fileName = "book_${UUID.randomUUID()}.jpg"
+                val uploadResult = AdminBooksRepository.uploadBookCover(state.imageBytes, fileName)
+
+                uploadResult.onSuccess { url ->
+                    coverImageUrl = url
+                }.onFailure { error ->
+                    _uiState.value = _uiState.value.copy(
+                        isLoading = false,
+                        errorMessage = "Gagal upload gambar: ${error.message}"
+                    )
+                    return@launch
+                }
+            }
+
             val book = BooksRepository.BookRow(
                 id = UUID.randomUUID().toString(),
                 title = state.title,
@@ -120,7 +187,7 @@ class AdminAddBookViewModel : ViewModel() {
                 category = state.category,
                 categoryColor = state.categoryColor,
                 description = state.description,
-                coverImageUrl = state.coverImageUrl,
+                coverImageUrl = coverImageUrl,
                 rating = 0f,
                 totalCopies = state.totalCopies,
                 availableCopies = state.totalCopies
