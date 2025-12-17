@@ -46,5 +46,20 @@ object AdminBooksRepository {
             Result.failure(e)
         }
     }
+
+    /**
+     * Insert a new book
+     */
+    suspend fun insertBook(book: BooksRepository.BookRow): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+            client.from("books").insert(book)
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error inserting book", e)
+            Result.failure(e)
+        }
+    }
 }
 
