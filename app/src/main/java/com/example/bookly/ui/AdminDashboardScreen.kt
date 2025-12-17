@@ -142,7 +142,7 @@ fun AdminDashboardScreen(
                         }
 
                         Button(
-                            onClick = { /* TODO: Navigate to add book */ },
+                            onClick = { navController.navigate("admin_add_book") },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF329A71)
                             ),
