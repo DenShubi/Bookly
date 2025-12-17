@@ -4,7 +4,9 @@ import android.net.Uri
 import android.util.Base64
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -223,7 +225,6 @@ fun AdminAddBookScreen(
                     enabled = !uiState.isLoading,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp)
                         .shadow(
                             elevation = 4.dp,
                             shape = RoundedCornerShape(12.dp)
@@ -289,8 +290,7 @@ fun InputField(
                 )
             },
             modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
+                .fillMaxWidth(),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedBorderColor = Color(0xFF329A71),
                 unfocusedBorderColor = Color(0xFFE0E0E0),
@@ -327,10 +327,17 @@ fun DropdownField(
             fontWeight = FontWeight.SemiBold,
             color = Color.Black
         )
-        Box {
+        // 1. Wrap in a Box with clickable
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { expanded = !expanded }
+        ) {
             OutlinedTextField(
                 value = value,
                 onValueChange = {},
+                // 2. Set enabled to false so clicks pass through to the Box
+                enabled = false,
                 readOnly = true,
                 leadingIcon = {
                     Icon(
@@ -341,21 +348,21 @@ fun DropdownField(
                     )
                 },
                 trailingIcon = {
-                    IconButton(onClick = { expanded = !expanded }) {
-                        Icon(
-                            if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
-                            contentDescription = "Expand"
-                        )
-                    }
+                    Icon(
+                        if (expanded) Icons.Default.ArrowDropUp else Icons.Default.ArrowDropDown,
+                        contentDescription = "Expand",
+                        tint = Color.Black
+                    )
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp),
+                modifier = Modifier.fillMaxWidth(),
+                // 3. Override disabled colors to make it look normal
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFF329A71),
-                    unfocusedBorderColor = Color(0xFFE0E0E0),
-                    focusedContainerColor = Color.White,
-                    unfocusedContainerColor = Color.White
+                    disabledBorderColor = Color(0xFFE0E0E0),
+                    disabledTextColor = Color.Black,
+                    disabledPlaceholderColor = Color(0xFFBDBDBD),
+                    disabledLeadingIconColor = Color(0xFF828282),
+                    disabledTrailingIconColor = Color.Black,
+                    disabledContainerColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
                 textStyle = LocalTextStyle.current.copy(
@@ -364,9 +371,11 @@ fun DropdownField(
                 ),
                 singleLine = true
             )
+
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
+                // Use fillMaxWidth(0.9f) or similar to match the field width
                 modifier = Modifier.fillMaxWidth(0.9f)
             ) {
                 options.forEach { option ->
@@ -392,46 +401,49 @@ fun ImageUploadField(
     val context = LocalContext.current
     var showError by remember { mutableStateOf<String?>(null) }
 
-    // Image picker launcher
+    // 🔹 Local preview state (Uri ONLY for UI)
+    var previewUri by remember { mutableStateOf<Uri?>(null) }
+
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
+            previewUri = it // ✅ preview uses Uri
+
             try {
-                // Convert image to base64
-                val inputStream = context.contentResolver.openInputStream(uri)
-                val bytes = inputStream?.readBytes()
-                inputStream?.close()
+                val bytes = context.contentResolver
+                    .openInputStream(it)
+                    ?.use { stream -> stream.readBytes() }
 
-                if (bytes != null) {
-                    // Check file size (max 5MB)
-                    if (bytes.size > 5 * 1024 * 1024) {
-                        showError = "Ukuran file maksimal 5MB!"
-                        return@let
-                    }
-
-                    // Convert to base64
-                    val base64 = Base64.encodeToString(bytes, Base64.DEFAULT)
-                    val mimeType = context.contentResolver.getType(uri) ?: "image/jpeg"
-                    val base64String = "data:$mimeType;base64,$base64"
-
-                    onUrlChange(base64String)
-                    showError = null
-                } else {
+                if (bytes == null) {
                     showError = "Gagal membaca file gambar"
+                    return@let
                 }
+
+                if (bytes.size > 5 * 1024 * 1024) {
+                    showError = "Ukuran file maksimal 5MB!"
+                    return@let
+                }
+
+                val mimeType =
+                    context.contentResolver.getType(it) ?: "image/jpeg"
+                val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+                val base64String = "data:$mimeType;base64,$base64"
+
+                // 🔹 still send Base64 to ViewModel
+                onUrlChange(base64String)
+                showError = null
             } catch (e: Exception) {
                 showError = "Error: ${e.message}"
             }
         }
     }
 
-    // Error dialog
     if (showError != null) {
         AlertDialog(
             onDismissRequest = { showError = null },
             title = { Text("Error") },
-            text = { Text(showError ?: "") },
+            text = { Text(showError!!) },
             confirmButton = {
                 TextButton(onClick = { showError = null }) {
                     Text("OK")
@@ -440,9 +452,7 @@ fun ImageUploadField(
         )
     }
 
-    Column(
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = label,
             fontSize = 14.sp,
@@ -450,116 +460,40 @@ fun ImageUploadField(
             color = Color.Black
         )
 
-        // Image Preview
-        if (imageUrl.isNotEmpty()) {
+        // ✅ FIXED PREVIEW
+        if (previewUri != null) {
             Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
-                    model = imageUrl,
+                    model = previewUri,
                     contentDescription = "Preview",
                     modifier = Modifier
                         .width(128.dp)
                         .height(180.dp)
                         .clip(RoundedCornerShape(10.dp))
-                        .shadow(
-                            elevation = 4.dp,
-                            shape = RoundedCornerShape(10.dp)
-                        ),
+                        .shadow(4.dp, RoundedCornerShape(10.dp)),
                     contentScale = ContentScale.Crop
                 )
             }
         }
 
-        // Upload Button - Now functional
         Button(
             onClick = { imagePickerLauncher.launch("image/*") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            border = BorderStroke(1.dp, Color(0xFF329A71)),
             colors = ButtonDefaults.buttonColors(
                 containerColor = Color(0xFF329A71).copy(alpha = 0.1f),
                 contentColor = Color(0xFF329A71)
-            ),
-            shape = RoundedCornerShape(12.dp),
-            border = androidx.compose.foundation.BorderStroke(
-                width = 1.dp,
-                color = Color(0xFF329A71)
             )
         ) {
-            Icon(
-                Icons.Default.Upload,
-                contentDescription = "Upload",
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                if (imageUrl.isNotEmpty()) "Ubah Gambar" else "Upload Gambar",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Icon(Icons.Default.Upload, contentDescription = null)
+            Spacer(Modifier.width(8.dp))
+            Text(if (imageUrl.isNotEmpty()) "Ubah Gambar" else "Upload Gambar")
         }
-
-        // Or divider
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp
-            )
-            Text(
-                "atau",
-                fontSize = 12.sp,
-                color = Color(0xFF828282)
-            )
-            HorizontalDivider(
-                modifier = Modifier.weight(1f),
-                color = Color(0xFFE0E0E0),
-                thickness = 1.dp
-            )
-        }
-
-        // URL Input
-        OutlinedTextField(
-            value = if (imageUrl.startsWith("data:")) "" else imageUrl,
-            onValueChange = onUrlChange,
-            placeholder = {
-                Text(
-                    "Masukkan URL gambar",
-                    color = Color(0xFFBDBDBD)
-                )
-            },
-            leadingIcon = {
-                Icon(
-                    Icons.Default.Image,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = Color(0xFF828282)
-                )
-            },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedBorderColor = Color(0xFF329A71),
-                unfocusedBorderColor = Color(0xFFE0E0E0),
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White
-            ),
-            shape = RoundedCornerShape(12.dp),
-            textStyle = LocalTextStyle.current.copy(
-                fontSize = 14.sp,
-                color = Color.Black
-            ),
-            singleLine = true
-        )
     }
 }
+
 
