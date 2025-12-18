@@ -13,6 +13,7 @@ import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
 import com.example.bookly.ui.AdminAddBookScreen
 import com.example.bookly.ui.AdminDashboardScreen
+import com.example.bookly.ui.ChangePasswordScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
 import com.example.bookly.ui.HomeScreen
@@ -67,6 +68,10 @@ fun AppNav() {
                 navController = navController,
                 wishlistViewModel = wishlistViewModel
             )
+        }
+
+        composable("change_password") {
+            ChangePasswordScreen(navController = navController)
         }
 
         // --- DETAIL BUKU ---
