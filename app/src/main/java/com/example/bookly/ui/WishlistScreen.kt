@@ -220,7 +220,7 @@ private fun WishlistBookCard(book: Book, onRemoveClick: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "${book.rating} • ${book.availability}",
+                        text = "${book.rating ?: 0f} • ${book.availability}",
                         color = GreyText,
                         fontSize = 12.sp
                     )

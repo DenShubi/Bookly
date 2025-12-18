@@ -45,7 +45,7 @@ data class Book(
     val id: String = "",
     val title: String,
     val author: String,
-    val rating: Float,
+    val rating: Float?,
     val availability: String,
     val category: String,
     val categoryColor: Color,
@@ -309,7 +309,7 @@ fun BookCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${book.rating} • ${book.availability}", color = GreyText, fontSize = 12.sp)
+                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = GreyText, fontSize = 12.sp)
                 }
             }
             IconButton(onClick = onWishlistClick) {

@@ -109,12 +109,13 @@ fun LendingScreen(navController: NavController, bookId: String) {
                                             .padding(4.dp)
                                     ) {
                                         Icon(Icons.Default.Info, contentDescription = null, tint = Color.Transparent, modifier = Modifier.size(0.dp))
+                                        val ratingValue = b.rating ?: 0f
                                         repeat(5) { idx ->
-                                            Icon(Icons.Default.Star, contentDescription = "star", tint = if (idx < b.rating.toInt()) Color(0xFFFFC107) else Color(0xFFDDDDDD), modifier = Modifier.size(16.dp))
+                                            Icon(Icons.Default.Star, contentDescription = "star", tint = if (idx < ratingValue.toInt()) Color(0xFFFFC107) else Color(0xFFDDDDDD), modifier = Modifier.size(16.dp))
                                             Spacer(modifier = Modifier.width(2.dp))
                                         }
                                         Spacer(modifier = Modifier.width(6.dp))
-                                        Text(text = String.format("%.1f", b.rating), fontWeight = FontWeight.Bold)
+                                        Text(text = String.format("%.1f", ratingValue), fontWeight = FontWeight.Bold)
                                     }
                                     // ----------------------------
                                 }

@@ -54,7 +54,7 @@ class HomeViewModel : ViewModel() {
             id = this.id,
             title = this.title,
             author = this.author,
-            rating = this.rating.toInt(),
+            rating = (this.rating ?: 0f).toInt(),
             stock = this.availableCopies,
             category = this.category ?: "Umum",
             coverUrl = this.coverImageUrl ?: ""

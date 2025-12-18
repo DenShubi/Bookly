@@ -489,7 +489,7 @@ fun BookItemCard(
                             tint = Color(0xFFCC9600)
                         )
                         Text(
-                            text = String.format(Locale.US, "%.1f", book.rating),
+                            text = String.format(Locale.US, "%.1f", book.rating ?: 0f),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF383131)
