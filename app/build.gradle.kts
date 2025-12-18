@@ -65,18 +65,5 @@ dependencies {
     implementation("io.github.jan-tennert.supabase:postgrest-kt")
     implementation("io.github.jan-tennert.supabase:storage-kt")
 
-    // KTOR (Gunakan satu versi yang konsisten)
-    val ktor_version = "2.3.12"
-    implementation("io.ktor:ktor-client-core:$ktor_version")
-    implementation("io.ktor:ktor-client-android:$ktor_version")
-
-    // INI SOLUSI UTAMANYA: Tambahkan plugin untuk timeout
-    implementation("io.ktor:ktor-client-plugins:$ktor_version")
-
-    // Tambahan pendukung Supabase
-    implementation("io.ktor:ktor-client-logging:$ktor_version")
-    implementation("io.ktor:ktor-client-content-negotiation:$ktor_version")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktor_version")
-
     implementation(libs.coil.compose)
 }
