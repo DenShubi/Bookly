@@ -6,11 +6,26 @@ import io.github.jan.supabase.postgrest.query.Order
 import io.github.jan.supabase.storage.storage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.Serializable
 
 /**
  * Repository for admin-specific book operations.
  * Provides CRUD operations for books table.
  */
+@Serializable
+private data class BookUpdateDto(
+    val title: String,
+    val author: String,
+    val publisher: String?,
+    val publication_year: Int?,
+    val language: String?,
+    val category: String?,
+    val category_color: String?,
+    val description: String?,
+    val cover_image_url: String?,
+    val total_copies: Int,
+    val available_copies: Int
+)
 object AdminBooksRepository {
     private const val TAG = "AdminBooksRepository"
 
@@ -106,11 +121,29 @@ object AdminBooksRepository {
     /**
      * Update an existing book
      */
-    suspend fun updateBook(book: BooksRepository.BookRow): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun updateBook(
+        bookId: String,
+        state: BooksRepository.BookRow
+    ): Result<Unit> = withContext(Dispatchers.IO) {
         try {
             val client = SupabaseClientProvider.client
-            client.from("books").update(book) {
-                filter { eq("id", book.id) }
+
+            val dto = BookUpdateDto(
+                title = state.title,
+                author = state.author,
+                publisher = state.publisher,
+                publication_year = state.publicationYear,
+                language = state.language,
+                category = state.category,
+                category_color = state.categoryColor,
+                description = state.description,
+                cover_image_url = state.coverImageUrl,
+                total_copies = state.totalCopies,
+                available_copies = state.availableCopies
+            )
+
+            client.from("books").update(dto) {
+                filter { eq("id", bookId) }
             }
 
             Result.success(Unit)
@@ -119,5 +152,7 @@ object AdminBooksRepository {
             Result.failure(e)
         }
     }
+
+
 }
 
