@@ -168,9 +168,14 @@ fun AdminBookRequestScreen(
                             showDialog = true
                         },
                         onAddToCatalog = {
-                            // Navigate to Add Book (AdminAddBookScreen)
+                            // Navigate to Add Book with prefilled data
+                            navController.currentBackStackEntry?.savedStateHandle?.apply {
+                                set("prefill_title", req.title)
+                                set("prefill_author", req.author)
+                                set("prefill_year", req.publicationYear) // Keep as String
+                                set("prefill_cover_url", req.coverImageUrl)
+                            }
                             navController.navigate("admin_add_book")
-                            Toast.makeText(context, "Silakan input manual data", Toast.LENGTH_LONG).show()
                         }
                     )
                 }

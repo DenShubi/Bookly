@@ -147,6 +147,7 @@ fun AdminEditBookScreen(
                 ImageUploadField(
                     label = "Gambar Buku",
                     imageUri = uiState.imageUri,
+                    prefilledUrl = null,
                     onImageSelected = { uri, bytes ->
                         viewModel.updateImage(uri, bytes)
                     }
