@@ -26,6 +26,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
 
+@OptIn(kotlin.time.ExperimentalTime::class)
 @Composable
 fun LoginScreen(navController: NavController) {
     var emailInput by remember { mutableStateOf("") }
@@ -114,6 +115,9 @@ fun LoginScreen(navController: NavController) {
                             SupabaseClientProvider.currentAccessToken = session.accessToken
 
                             Log.d("Login", "Sukses! Token disimpan manual.")
+                            Log.d("Login", "JWT Access Token: ${session.accessToken}")
+                            Log.d("Login", "Token Type: ${session.tokenType}")
+                            Log.d("Login", "Expires At: ${session.expiresAt}")
 
                             // 3. Check if admin and navigate accordingly
                             val userEmail = auth.currentUserOrNull()?.email

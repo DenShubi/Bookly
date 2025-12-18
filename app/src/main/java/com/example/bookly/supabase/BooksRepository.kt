@@ -26,7 +26,7 @@ object BooksRepository {
         @SerialName("category_color") val categoryColor: String? = null,
         val description: String? = null,
         @SerialName("cover_image_url") val coverImageUrl: String? = null,
-        val rating: Float = 0f,
+        val rating: Float? = null,
         @SerialName("total_copies") val totalCopies: Int = 0,
         @SerialName("available_copies") val availableCopies: Int = 0,
         // Tambahan untuk fitur rekomendasi (terbaru)

@@ -20,7 +20,7 @@ data class BookDetailData(
     val categoryColor: String?,
     val description: String,
     val coverImageUrl: String?,
-    val rating: Float,
+    val rating: Float?,
     val totalCopies: Int,
     val availableCopies: Int
 )

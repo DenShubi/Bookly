@@ -132,7 +132,7 @@ fun BookDetailScreen(
                             ) {
                                 Icon(Icons.Default.Star, contentDescription = "Rating", tint = StarColor)
                                 Spacer(modifier = Modifier.width(6.dp))
-                                Text(text = String.format("%.1f", book.rating), fontWeight = FontWeight.Bold)
+                                Text(text = String.format("%.1f", book.rating ?: 0f), fontWeight = FontWeight.Bold)
                             }
                         }
                         // ----------------------------------------

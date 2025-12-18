@@ -281,7 +281,7 @@ fun RecommendationBookItem(book: BookDummy, onClick: () -> Unit) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     repeat(5) { Icon(Icons.Default.Star, contentDescription = null, tint = Color(0xFFFFC107), modifier = Modifier.size(16.dp)) }
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${book.rating}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    Text(text = "${book.rating ?: 0}", fontSize = 12.sp, fontWeight = FontWeight.Bold)
                 }
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
