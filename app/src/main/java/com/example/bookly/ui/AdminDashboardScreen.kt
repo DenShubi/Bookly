@@ -9,6 +9,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ExitToApp
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -240,6 +241,7 @@ fun ComingSoonScreen(feature: String) {
         }
     }
 }
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminBooksTab(
     navController: NavController,
@@ -288,13 +290,19 @@ fun AdminBooksTab(
             }
         )
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(20.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp)
+
+    PullToRefreshBox(
+        isRefreshing = uiState.isLoading,
+        onRefresh = { viewModel.loadBooks() },
+        modifier = Modifier.fillMaxSize()
     ) {
-        // Header with Add Button
-        item {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(20.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp)
+        ) {
+            // Header with Add Button
+            item {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -392,7 +400,9 @@ fun AdminBooksTab(
             )
         }
     }
+    }
 }
+
 @Composable
 fun BookItemCard(
     book: BooksRepository.BookRow,
@@ -489,7 +499,7 @@ fun BookItemCard(
                             tint = Color(0xFFCC9600)
                         )
                         Text(
-                            text = String.format(Locale.US, "%.1f", book.rating ?: 0f),
+                            text = String.format(Locale.US, "%.1f", book.rating),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFF383131)
