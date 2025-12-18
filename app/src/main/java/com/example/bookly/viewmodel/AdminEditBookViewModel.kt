@@ -245,7 +245,7 @@ class AdminEditBookViewModel : ViewModel() {
                 availableCopies = state.availableCopies
             )
 
-            val result = AdminBooksRepository.updateBook(book)
+            val result = AdminBooksRepository.updateBook(state.bookId, book)
             result.onSuccess {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,

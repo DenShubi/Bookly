@@ -249,6 +249,21 @@ fun AdminBooksTab(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var bookToDelete by remember { mutableStateOf<BooksRepository.BookRow?>(null) }
+    val lifecycleOwner = androidx.compose.ui.platform.LocalLifecycleOwner.current
+
+    LaunchedEffect(Unit) {
+        navController.currentBackStackEntry
+            ?.savedStateHandle
+            ?.getLiveData<Boolean>("BOOKS_UPDATED")
+            ?.observe(lifecycleOwner) { updated ->
+                if (updated == true) {
+                    viewModel.loadBooks()
+                    navController.currentBackStackEntry
+                        ?.savedStateHandle
+                        ?.remove<Boolean>("BOOKS_UPDATED")
+                }
+            }
+    }
     // Delete confirmation dialog
     if (bookToDelete != null) {
         AlertDialog(

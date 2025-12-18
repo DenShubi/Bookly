@@ -43,6 +43,10 @@ fun AdminAddBookScreen(
     // Navigate back on successful save
     LaunchedEffect(uiState.isSaved) {
         if (uiState.isSaved) {
+            navController.previousBackStackEntry
+                ?.savedStateHandle
+                ?.set("BOOKS_UPDATED", true)
+
             navController.navigateUp()
         }
     }
