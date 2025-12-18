@@ -408,11 +408,7 @@ fun ImageUploadField(
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        if (uri == null) {
-            onImageSelected(null, null)
-            return@rememberLauncherForActivityResult
-        }
-
+        if (uri == null) return@rememberLauncherForActivityResult
         try {
             // Read image as bytes
             val bytes = context.contentResolver
