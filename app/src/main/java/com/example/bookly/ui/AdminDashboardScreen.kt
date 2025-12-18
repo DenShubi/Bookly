@@ -106,19 +106,8 @@ fun AdminTopBar(
                 text = title,
                 fontSize = 28.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF329A71),
-                modifier = Modifier.fillMaxWidth(),
-                textAlign = TextAlign.Center
+                color = Color(0xFF329A71)
             )
-        },
-        navigationIcon = {
-            IconButton(onClick = onBack) {
-                Icon(
-                    Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Back",
-                    tint = Color.Black
-                )
-            }
         },
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.White
