@@ -395,7 +395,7 @@ fun AdminBooksTab(
         items(uiState.books, key = { it.id }) { book ->
             BookItemCard(
                 book = book,
-                onEdit = { /* TODO: Navigate to edit */ },
+                onEdit = { navController.navigate("admin_edit_book/${book.id}") },
                 onDelete = { bookToDelete = book }
             )
         }

@@ -43,6 +43,18 @@ fun AppNav() {
             AdminAddBookScreen(navController = navController)
         }
 
+        // --- ADMIN EDIT BOOK ---
+        composable(
+            route = "admin_edit_book/{bookId}",
+            arguments = listOf(navArgument("bookId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
+            com.example.bookly.ui.AdminEditBookScreen(
+                navController = navController,
+                bookId = bookId
+            )
+        }
+
         // --- HOME SCREEN (BERANDA) ---
         // Sebelumnya hanya Text dummy, sekarang memanggil Screen asli
         composable("home") {

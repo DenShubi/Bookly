@@ -85,5 +85,39 @@ object AdminBooksRepository {
             Result.failure(e)
         }
     }
+
+    /**
+     * Get a book by ID
+     */
+    suspend fun getBookById(bookId: String): Result<BooksRepository.BookRow?> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+            val book = client.from("books").select {
+                filter { eq("id", bookId) }
+            }.decodeSingleOrNull<BooksRepository.BookRow>()
+
+            Result.success(book)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error fetching book by ID", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
+     * Update an existing book
+     */
+    suspend fun updateBook(book: BooksRepository.BookRow): Result<Unit> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+            client.from("books").update(book) {
+                filter { eq("id", book.id) }
+            }
+
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error updating book", e)
+            Result.failure(e)
+        }
+    }
 }
 
