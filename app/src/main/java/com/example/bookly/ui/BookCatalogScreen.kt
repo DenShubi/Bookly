@@ -194,10 +194,6 @@ fun BookCatalogTopAppBar(navController: NavController) {
                 .padding(start = 16.dp, end = 16.dp, top = 24.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            IconButton(onClick = { navController.navigateUp() }) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.Black)
-            }
-            Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = "Katalog Buku",
                 color = Green,
