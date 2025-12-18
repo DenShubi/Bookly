@@ -2,6 +2,9 @@ package com.example.bookly.navigation
 
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -11,6 +14,12 @@ import androidx.navigation.navArgument
 import com.example.bookly.LoginScreen
 import com.example.bookly.ProfileScreen
 import com.example.bookly.RegisterScreen
+// Pastikan import ini tidak merah (artinya file sudah dibuat dengan benar)
+import com.example.bookly.supabase.RequestBookRepository
+import com.example.bookly.supabase.SupabaseClientProvider
+import com.example.bookly.ui.RequestBookScreen
+import com.example.bookly.viewmodel.RequestBookViewModel
+// -----------------------------------------------------------------------
 import com.example.bookly.ui.AdminAddBookScreen
 import com.example.bookly.ui.AdminDashboardScreen
 import com.example.bookly.ui.ChangePasswordScreen
@@ -26,43 +35,28 @@ import com.example.bookly.viewmodel.WishlistViewModel
 @Composable
 fun AppNav() {
     val navController = rememberNavController()
+    // WishlistViewModel dishare untuk akses global
     val wishlistViewModel: WishlistViewModel = viewModel()
 
-    // Start Destination dimulai dari login
     NavHost(navController = navController, startDestination = "login") {
 
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }
 
-        // --- ADMIN DASHBOARD ---
-        composable("admin_dashboard") {
-            AdminDashboardScreen(navController = navController)
-        }
-
-        // --- ADMIN ADD BOOK ---
-        composable("admin_add_book") {
-            AdminAddBookScreen(navController = navController)
-        }
-
-        // --- ADMIN EDIT BOOK ---
+        // --- ADMIN ROUTES ---
+        composable("admin_dashboard") { AdminDashboardScreen(navController = navController) }
+        composable("admin_add_book") { AdminAddBookScreen(navController = navController) }
         composable(
             route = "admin_edit_book/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            com.example.bookly.ui.AdminEditBookScreen(
-                navController = navController,
-                bookId = bookId
-            )
+            com.example.bookly.ui.AdminEditBookScreen(navController = navController, bookId = bookId)
         }
 
-        // --- HOME SCREEN (BERANDA) ---
-        // Sebelumnya hanya Text dummy, sekarang memanggil Screen asli
-        composable("home") {
-            HomeScreen(navController = navController)
-        }
+        // --- USER ROUTES ---
+        composable("home") { HomeScreen(navController = navController) }
 
-        // --- KATALOG BUKU ---
         composable("katalog_buku") {
             BookCatalogScreen(
                 navController = navController,
@@ -70,11 +64,23 @@ fun AppNav() {
             )
         }
 
-        composable("change_password") {
-            ChangePasswordScreen(navController = navController)
+        // --- REQUEST BUKU BARU (FIXED) ---
+        composable("request_book") {
+            // Kita gunakan Factory agar ViewModel tidak error saat minta Repository
+            val viewModel: RequestBookViewModel = viewModel(
+                factory = object : ViewModelProvider.Factory {
+                    override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                        val repo = RequestBookRepository(SupabaseClientProvider.client)
+                        return RequestBookViewModel(repo) as T
+                    }
+                }
+            )
+            RequestBookScreen(navController = navController, viewModel = viewModel)
         }
+        // ---------------------------------
 
-        // --- DETAIL BUKU ---
+        composable("change_password") { ChangePasswordScreen(navController = navController) }
+
         composable(
             route = "book_detail/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -87,38 +93,19 @@ fun AppNav() {
             )
         }
 
-        // --- PEMINJAMAN ---
         composable("peminjaman") { PeminjamanScreen(navController = navController) }
-
-        // --- WISHLIST ---
-        composable("wishlist") {
-            WishlistScreen(
-                navController = navController,
-                wishlistViewModel = wishlistViewModel
-            )
-        }
-
-        // --- PROFILE ---
-        composable("profile") {
-            ProfileScreen(
-                navController = navController,
-                wishlistViewModel = wishlistViewModel
-            )
-        }
-
-        // --- NOTIFIKASI (Opsional) ---
+        composable("wishlist") { WishlistScreen(navController = navController, wishlistViewModel = wishlistViewModel) }
+        composable("profile") { ProfileScreen(navController = navController, wishlistViewModel = wishlistViewModel) }
         composable("notifikasi") { Text(text = "Notifikasi Screen") }
 
-        // --- FITUR TAMBAHAN (Loan, Review, dll) ---
+        // --- FITUR LAINNYA ---
         composable(
             route = "book_borrow/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            // Menggunakan BookDetailScreen (sesuai kode asli Anda)
             com.example.bookly.ui.BookDetailScreen(navController = navController, bookId = bookId)
         }
-
         composable(
             route = "book_borrow_confirm/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -126,7 +113,6 @@ fun AppNav() {
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             com.example.bookly.ui.LendingScreen(navController = navController, bookId = bookId)
         }
-
         composable(
             route = "peminjamanScreen1/{loanId}",
             arguments = listOf(navArgument("loanId") { type = NavType.StringType })
@@ -134,7 +120,6 @@ fun AppNav() {
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.PeminjamanScreen1(navController = navController, loanId = loanId)
         }
-
         composable(
             route = "status_peminjaman/{loanId}",
             arguments = listOf(navArgument("loanId") { type = NavType.StringType })
@@ -142,8 +127,6 @@ fun AppNav() {
             val loanId = backStackEntry.arguments?.getString("loanId") ?: ""
             com.example.bookly.ui.StatusPeminjaman(navController = navController, loanId = loanId)
         }
-
-        // --- REVIEW LIST ---
         composable(
             route = "review/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
@@ -151,8 +134,6 @@ fun AppNav() {
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
             ReviewListScreen(navController = navController, bookId = bookId)
         }
-
-        // --- REVIEW FORM ---
         composable(
             route = "review_form/{bookId}",
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })

@@ -1,4 +1,5 @@
 package com.example.bookly.ui
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -32,14 +33,17 @@ import coil.compose.AsyncImage
 import com.example.bookly.R
 import com.example.bookly.viewmodel.BookCatalogViewModel
 import com.example.bookly.viewmodel.WishlistViewModel
+
 // Colors
 val Green = Color(0xFF2E8B57)
 val StarColor = Color(0xFFFFB800)
+
 // Category Colors
 val NovelColor = Color(0xFFE0F2F1)
 val BisnisColor = Color(0xFFFCE4EC)
 val PendidikanColor = Color(0xFFE3F2FD)
 val SejarahColor = Color(0xFFFFF3E0)
+
 // Data Class
 data class Book(
     val id: String = "",
@@ -52,6 +56,7 @@ data class Book(
     val coverImage: Int,
     val coverImageUrl: String? = null
 )
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookCatalogScreen(
@@ -121,9 +126,24 @@ fun BookCatalogScreen(
         }
     }
     val pullToRefreshState = rememberPullToRefreshState()
+
     Scaffold(
         topBar = { BookCatalogTopAppBar(navController) },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
+        // --- BAGIAN BARU: Floating Action Button untuk Request Buku ---
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate("request_book") },
+                containerColor = Green,
+                contentColor = Color.White
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = "Request Buku Baru"
+                )
+            }
+        },
+        // -------------------------------------------------------------
         containerColor = Color.White,
         snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
     ) { paddingValues ->
@@ -141,7 +161,7 @@ fun BookCatalogScreen(
                     .background(Color.White)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+                contentPadding = PaddingValues(top = 16.dp, bottom = 80.dp) // Tambah padding bottom agar tidak tertutup FAB
             ) {
                 item {
                     SearchBar(
@@ -184,6 +204,7 @@ fun BookCatalogScreen(
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookCatalogTopAppBar(navController: NavController) {
@@ -204,6 +225,7 @@ fun BookCatalogTopAppBar(navController: NavController) {
         Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SearchBar(
@@ -228,6 +250,7 @@ fun SearchBar(
         )
     )
 }
+
 @Composable
 fun FilterSortRow() {
     Row(
@@ -240,6 +263,7 @@ fun FilterSortRow() {
         FilterSortItem(icon = Icons.Default.SwapVert, text = "Urutkan")
     }
 }
+
 @Composable
 fun FilterSortItem(icon: ImageVector, text: String) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.clickable { }) {
@@ -248,6 +272,7 @@ fun FilterSortItem(icon: ImageVector, text: String) {
         Text(text = text, color = Green, fontSize = 16.sp)
     }
 }
+
 @Composable
 fun BookCard(
     book: Book,
@@ -289,7 +314,7 @@ fun BookCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = book.author,
-                    color = GreyText,
+                    color = Color.Gray, // Fixed missing GreyText variable
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -305,7 +330,7 @@ fun BookCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = GreyText, fontSize = 12.sp)
+                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = Color.Gray, fontSize = 12.sp) // Fixed missing GreyText
                 }
             }
             IconButton(onClick = onWishlistClick) {
@@ -318,6 +343,7 @@ fun BookCard(
         }
     }
 }
+
 @Composable
 fun Chip(text: String, color: Color) {
     Box(
@@ -333,16 +359,19 @@ fun Chip(text: String, color: Color) {
         )
     }
 }
+
 @Preview(showBackground = true, showSystemUi = true)
 @Composable
 fun BookCatalogScreenPreview() {
     BookCatalogScreen(navController = rememberNavController())
 }
+
 @Preview(showBackground = true)
 @Composable
 fun BookCatalogTopAppBarPreview() {
     BookCatalogTopAppBar(navController = rememberNavController())
 }
+
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 fun SearchBarPreview() {
@@ -350,16 +379,19 @@ fun SearchBarPreview() {
         SearchBar()
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun FilterSortRowPreview() {
     FilterSortRow()
 }
+
 @Preview(showBackground = true)
 @Composable
 fun FilterSortItemPreview() {
     FilterSortItem(icon = Icons.Default.FilterList, text = "Filter")
 }
+
 @Preview(showBackground = true, widthDp = 360)
 @Composable
 fun BookCardPreview() {
@@ -367,6 +399,7 @@ fun BookCardPreview() {
         BookCard(book = Book(id = "1", title = "Laskar Pelangi", author = "Andrea Hirata", rating = 4.9f, availability = "5/8 tersedia", category = "Novel", categoryColor = NovelColor, coverImage = R.drawable.book_cover), onClick = {})
     }
 }
+
 @Preview(showBackground = true)
 @Composable
 fun ChipPreview() {
