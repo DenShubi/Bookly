@@ -125,7 +125,17 @@ fun BookCatalogScreen(
         topBar = { BookCatalogTopAppBar(navController) },
         bottomBar = { BottomNavigationBar(navController = navController, selected = "buku") },
         containerColor = Color.White,
-        snackbarHost = { SnackbarHost(hostState = snackbarHostState) }
+        snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { navController.navigate("request_book") },
+                containerColor = Green,
+                contentColor = Color.White,
+                shape = CircleShape
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "Request Buku")
+            }
+        }
     ) { paddingValues ->
         PullToRefreshBox(
             state = pullToRefreshState,
@@ -141,7 +151,7 @@ fun BookCatalogScreen(
                     .background(Color.White)
                     .padding(horizontal = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
-                contentPadding = PaddingValues(top = 16.dp, bottom = 16.dp)
+                contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp) // Extra padding for FAB
             ) {
                 item {
                     SearchBar(
@@ -201,7 +211,7 @@ fun BookCatalogTopAppBar(navController: NavController) {
                 fontWeight = FontWeight.Bold
             )
         }
-        Divider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
+        HorizontalDivider(color = Color.LightGray.copy(alpha = 0.5f), thickness = 1.dp, modifier = Modifier.shadow(1.dp))
     }
 }
 @OptIn(ExperimentalMaterial3Api::class)
@@ -289,7 +299,7 @@ fun BookCard(
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = book.author,
-                    color = GreyText,
+                    color = Color.Gray,
                     fontSize = 14.sp,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
@@ -305,7 +315,7 @@ fun BookCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = GreyText, fontSize = 12.sp)
+                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = Color.Gray, fontSize = 12.sp)
                 }
             }
             IconButton(onClick = onWishlistClick) {
@@ -332,43 +342,4 @@ fun Chip(text: String, color: Color) {
             fontWeight = FontWeight.SemiBold
         )
     }
-}
-@Preview(showBackground = true, showSystemUi = true)
-@Composable
-fun BookCatalogScreenPreview() {
-    BookCatalogScreen(navController = rememberNavController())
-}
-@Preview(showBackground = true)
-@Composable
-fun BookCatalogTopAppBarPreview() {
-    BookCatalogTopAppBar(navController = rememberNavController())
-}
-@Preview(showBackground = true, widthDp = 360)
-@Composable
-fun SearchBarPreview() {
-    Column(modifier = Modifier.padding(16.dp)) {
-        SearchBar()
-    }
-}
-@Preview(showBackground = true)
-@Composable
-fun FilterSortRowPreview() {
-    FilterSortRow()
-}
-@Preview(showBackground = true)
-@Composable
-fun FilterSortItemPreview() {
-    FilterSortItem(icon = Icons.Default.FilterList, text = "Filter")
-}
-@Preview(showBackground = true, widthDp = 360)
-@Composable
-fun BookCardPreview() {
-    Column(modifier = Modifier.padding(16.dp)) {
-        BookCard(book = Book(id = "1", title = "Laskar Pelangi", author = "Andrea Hirata", rating = 4.9f, availability = "5/8 tersedia", category = "Novel", categoryColor = NovelColor, coverImage = R.drawable.book_cover), onClick = {})
-    }
-}
-@Preview(showBackground = true)
-@Composable
-fun ChipPreview() {
-    Chip(text = "Novel", color = NovelColor)
 }
