@@ -39,6 +39,31 @@ fun AdminAddBookScreen(
     viewModel: AdminAddBookViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var prefilledCoverUrl by remember { mutableStateOf<String?>(null) }
+
+    // Get prefilled data from navigation
+    LaunchedEffect(Unit) {
+        navController.previousBackStackEntry?.savedStateHandle?.apply {
+            val title = get<String>("prefill_title")
+            val author = get<String>("prefill_author")
+            val yearString = get<String>("prefill_year")
+            val coverUrl = get<String>("prefill_cover_url")
+
+            // Convert year string to int
+            val year = yearString?.toIntOrNull()
+
+            if (title != null || author != null || year != null) {
+                viewModel.prefillData(title, author, year, coverUrl)
+                prefilledCoverUrl = coverUrl
+            }
+
+            // Clear the data after using it
+            remove<String>("prefill_title")
+            remove<String>("prefill_author")
+            remove<String>("prefill_year")
+            remove<String>("prefill_cover_url")
+        }
+    }
 
     // Navigate back on successful save
     LaunchedEffect(uiState.isSaved) {
@@ -135,8 +160,10 @@ fun AdminAddBookScreen(
                 ImageUploadField(
                     label = "Gambar Buku",
                     imageUri = uiState.imageUri,
+                    prefilledUrl = prefilledCoverUrl,
                     onImageSelected = { uri, bytes ->
                         viewModel.updateImage(uri, bytes)
+                        prefilledCoverUrl = null // Clear prefilled URL once user selects new image
                     }
                 )
 
@@ -400,13 +427,25 @@ fun DropdownField(
 fun ImageUploadField(
     label: String,
     imageUri: Uri?,
+    prefilledUrl: String?,
     onImageSelected: (Uri?, ByteArray?) -> Unit
 ) {
     val context = LocalContext.current
     var showError by remember { mutableStateOf<String?>(null) }
+    var showImageSourceDialog by remember { mutableStateOf(false) }
+    var tempCameraUri by remember { mutableStateOf<Uri?>(null) }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
+    // Helper to check permission status
+    fun checkCameraPermission(): Boolean {
+        return androidx.core.content.ContextCompat.checkSelfPermission(
+            context,
+            android.Manifest.permission.CAMERA
+        ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+    }
+
+    // Gallery Launcher
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
         try {
@@ -435,6 +474,48 @@ fun ImageUploadField(
         }
     }
 
+    // Camera Launcher
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempCameraUri != null) {
+            try {
+                val bytes = context.contentResolver
+                    .openInputStream(tempCameraUri!!)
+                    ?.use { stream -> stream.readBytes() }
+
+                if (bytes == null) {
+                    showError = "Gagal membaca foto"
+                    return@rememberLauncherForActivityResult
+                }
+
+                if (bytes.size > 5 * 1024 * 1024) {
+                    showError = "Ukuran file maksimal 5MB!"
+                    return@rememberLauncherForActivityResult
+                }
+
+                onImageSelected(tempCameraUri, bytes)
+                showError = null
+            } catch (e: Exception) {
+                showError = "Error: ${e.message}"
+                onImageSelected(null, null)
+            }
+        }
+    }
+
+    // Permission Launcher for Camera
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            val uri = ComposeFileProvider.getImageUri(context)
+            tempCameraUri = uri
+            cameraLauncher.launch(uri)
+        } else {
+            showError = "Izin kamera diperlukan"
+        }
+    }
+
     // Error dialog
     if (showError != null) {
         AlertDialog(
@@ -449,6 +530,41 @@ fun ImageUploadField(
         )
     }
 
+    // Image Source Dialog
+    if (showImageSourceDialog) {
+        AlertDialog(
+            onDismissRequest = { showImageSourceDialog = false },
+            title = { Text("Pilih Sumber Gambar") },
+            text = { Text("Pilih dari mana Anda ingin mengambil gambar") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showImageSourceDialog = false
+                    if (checkCameraPermission()) {
+                        val uri = ComposeFileProvider.getImageUri(context)
+                        tempCameraUri = uri
+                        cameraLauncher.launch(uri)
+                    } else {
+                        cameraPermissionLauncher.launch(android.Manifest.permission.CAMERA)
+                    }
+                }) {
+                    Text("Kamera")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showImageSourceDialog = false
+                    galleryLauncher.launch(
+                        androidx.activity.result.PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly
+                        )
+                    )
+                }) {
+                    Text("Galeri")
+                }
+            }
+        )
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(
             text = label,
@@ -458,13 +574,14 @@ fun ImageUploadField(
         )
 
         // Image Preview
-        if (imageUri != null) {
+        val displayImageSource = imageUri ?: prefilledUrl
+        if (displayImageSource != null) {
             Box(
                 modifier = Modifier.fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 AsyncImage(
-                    model = imageUri,
+                    model = displayImageSource,
                     contentDescription = "Preview",
                     modifier = Modifier
                         .width(128.dp)
@@ -478,7 +595,7 @@ fun ImageUploadField(
 
         // Upload Button
         Button(
-            onClick = { imagePickerLauncher.launch("image/*") },
+            onClick = { showImageSourceDialog = true },
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             border = BorderStroke(1.dp, Color(0xFF329A71)),
@@ -489,9 +606,26 @@ fun ImageUploadField(
         ) {
             Icon(Icons.Default.Upload, contentDescription = null)
             Spacer(Modifier.width(8.dp))
-            Text(if (imageUri != null) "Ubah Gambar" else "Upload Gambar")
+            Text(if (displayImageSource != null) "Ubah Gambar" else "Upload Gambar")
         }
     }
 }
 
-
+// Helper class for Camera URI
+object ComposeFileProvider {
+    fun getImageUri(context: android.content.Context): Uri {
+        val directory = java.io.File(context.cacheDir, "images")
+        directory.mkdirs()
+        val file = java.io.File.createTempFile(
+            "selected_image_",
+            ".jpg",
+            directory
+        )
+        val authority = context.packageName + ".provider"
+        return androidx.core.content.FileProvider.getUriForFile(
+            context,
+            authority,
+            file
+        )
+    }
+}

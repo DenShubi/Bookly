@@ -138,6 +138,15 @@ class AdminAddBookViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(description = description)
     }
 
+    fun prefillData(title: String?, author: String?, year: Int?, coverUrl: String?) {
+        _uiState.value = _uiState.value.copy(
+            title = title ?: "",
+            author = author ?: "",
+            year = year ?: 2024
+        )
+        // Note: coverUrl will be handled separately in the UI for preview
+    }
+
     fun clearError() {
         _uiState.value = _uiState.value.copy(errorMessage = null)
     }
