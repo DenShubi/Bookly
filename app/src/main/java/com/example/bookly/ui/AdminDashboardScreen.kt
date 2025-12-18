@@ -29,6 +29,7 @@ import coil.compose.AsyncImage
 import com.example.bookly.supabase.BooksRepository
 import com.example.bookly.viewmodel.AdminDashboardViewModel
 import java.util.Locale
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
@@ -37,6 +38,7 @@ fun AdminDashboardScreen(
 ) {
     var activeTab by remember { mutableStateOf("buku") }
     var showLogoutDialog by remember { mutableStateOf(false) }
+
     // Logout confirmation dialog
     if (showLogoutDialog) {
         AlertDialog(
@@ -88,12 +90,14 @@ fun AdminDashboardScreen(
         ) {
             when (activeTab) {
                 "buku" -> AdminBooksTab(navController, viewModel)
+                "permintaan" -> AdminBookRequestScreen(navController)
                 "denda" -> ComingSoonScreen("Denda")
                 "verifikasi" -> ComingSoonScreen("Verifikasi")
             }
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminTopBar(
@@ -115,6 +119,7 @@ fun AdminTopBar(
         modifier = Modifier.shadow(elevation = 2.dp)
     )
 }
+
 @Composable
 fun AdminBottomNavigation(
     activeTab: String,
@@ -132,7 +137,7 @@ fun AdminBottomNavigation(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 40.dp, vertical = 12.dp),
+                .padding(horizontal = 24.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -141,6 +146,12 @@ fun AdminBottomNavigation(
                 label = "Buku",
                 isActive = activeTab == "buku",
                 onClick = { onNavigate("buku") }
+            )
+            AdminNavItem(
+                icon = Icons.Default.LibraryAdd,
+                label = "Permintaan",
+                isActive = activeTab == "permintaan",
+                onClick = { onNavigate("permintaan") }
             )
             AdminNavItem(
                 icon = Icons.Default.Receipt,
@@ -163,6 +174,7 @@ fun AdminBottomNavigation(
         }
     }
 }
+
 @Composable
 fun AdminNavItem(
     icon: ImageVector,
@@ -172,7 +184,7 @@ fun AdminNavItem(
 ) {
     Column(
         modifier = Modifier
-            .width(60.dp),
+            .width(55.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(2.dp)
     ) {
@@ -198,6 +210,7 @@ fun AdminNavItem(
         )
     }
 }
+
 @Composable
 fun ComingSoonScreen(feature: String) {
     Box(
@@ -230,6 +243,7 @@ fun ComingSoonScreen(feature: String) {
         }
     }
 }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminBooksTab(
@@ -307,103 +321,103 @@ fun AdminBooksTab(
         ) {
             // Header with Add Button
             item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Kelola Buku",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    Text(
-                        text = "${uiState.books.size} buku tersedia",
-                        fontSize = 14.sp,
-                        color = Color(0xFF828282)
-                    )
-                }
-                Button(
-                    onClick = { navController.navigate("admin_add_book") },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF329A71)
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
-                    modifier = Modifier.shadow(
-                        elevation = 4.dp,
-                        shape = RoundedCornerShape(12.dp)
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Add,
-                        contentDescription = "Add",
-                        modifier = Modifier.size(20.dp),
-                        tint = Color.White
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        "Tambah",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color.White
-                    )
-                }
-            }
-        }
-        // Loading state
-        if (uiState.isLoading) {
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 60.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = Color(0xFF329A71)
-                    )
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "Kelola Buku",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = "${uiState.books.size} buku tersedia",
+                            fontSize = 14.sp,
+                            color = Color(0xFF828282)
+                        )
+                    }
+                    Button(
+                        onClick = { navController.navigate("admin_add_book") },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF329A71)
+                        ),
+                        shape = RoundedCornerShape(12.dp),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 10.dp),
+                        modifier = Modifier.shadow(
+                            elevation = 4.dp,
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add",
+                            modifier = Modifier.size(20.dp),
+                            tint = Color.White
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            "Tambah",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
                 }
             }
-        }
-        // Empty state
-        if (!uiState.isLoading && uiState.books.isEmpty()) {
-            item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 60.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Text(
-                        text = "Belum ada buku",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF828282)
-                    )
-                    Text(
-                        text = "Klik tombol \"Tambah\" untuk menambahkan buku baru",
-                        fontSize = 14.sp,
-                        color = Color(0xFFBDBDBD),
-                        textAlign = TextAlign.Center
-                    )
+            // Loading state
+            if (uiState.isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 60.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(
+                            color = Color(0xFF329A71)
+                        )
+                    }
                 }
             }
+            // Empty state
+            if (!uiState.isLoading && uiState.books.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 60.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "Belum ada buku",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF828282)
+                        )
+                        Text(
+                            text = "Klik tombol \"Tambah\" untuk menambahkan buku baru",
+                            fontSize = 14.sp,
+                            color = Color(0xFFBDBDBD),
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            // Books list
+            items(uiState.books, key = { it.id }) { book ->
+                BookItemCard(
+                    book = book,
+                    onEdit = { navController.navigate("admin_edit_book/${book.id}") },
+                    onDelete = { bookToDelete = book }
+                )
+            }
         }
-        // Books list
-        items(uiState.books, key = { it.id }) { book ->
-            BookItemCard(
-                book = book,
-                onEdit = { navController.navigate("admin_edit_book/${book.id}") },
-                onDelete = { bookToDelete = book }
-            )
-        }
-    }
     }
 }
 

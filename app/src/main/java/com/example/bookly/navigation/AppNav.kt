@@ -16,6 +16,7 @@ import com.example.bookly.ui.AdminDashboardScreen
 import com.example.bookly.ui.ChangePasswordScreen
 import com.example.bookly.ui.BookCatalogScreen
 import com.example.bookly.ui.BookDetailScreen
+import com.example.bookly.ui.BookRequestScreen
 import com.example.bookly.ui.HomeScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.ReviewListScreen
@@ -57,7 +58,6 @@ fun AppNav() {
         }
 
         // --- HOME SCREEN (BERANDA) ---
-        // Sebelumnya hanya Text dummy, sekarang memanggil Screen asli
         composable("home") {
             HomeScreen(navController = navController)
         }
@@ -67,6 +67,14 @@ fun AppNav() {
             BookCatalogScreen(
                 navController = navController,
                 wishlistViewModel = wishlistViewModel
+            )
+        }
+
+        // --- BOOK REQUEST (NEW) ---
+        composable("request_book") {
+            BookRequestScreen(
+                navController = navController,
+                onBack = { navController.popBackStack() }
             )
         }
 
@@ -115,7 +123,6 @@ fun AppNav() {
             arguments = listOf(navArgument("bookId") { type = NavType.StringType })
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId") ?: ""
-            // Menggunakan BookDetailScreen (sesuai kode asli Anda)
             com.example.bookly.ui.BookDetailScreen(navController = navController, bookId = bookId)
         }
 
