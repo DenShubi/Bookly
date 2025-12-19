@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -27,6 +28,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.bookly.supabase.BooksRepository
+import com.example.bookly.util.SessionManager
 import com.example.bookly.viewmodel.AdminDashboardViewModel
 import java.util.Locale
 
@@ -38,6 +40,7 @@ fun AdminDashboardScreen(
 ) {
     var activeTab by remember { mutableStateOf("buku") }
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
     // Logout confirmation dialog
     if (showLogoutDialog) {
@@ -49,6 +52,8 @@ fun AdminDashboardScreen(
                 TextButton(
                     onClick = {
                         showLogoutDialog = false
+                        // Clear session for auto-login
+                        SessionManager.clearSession(context)
                         navController.navigate("login") {
                             popUpTo(0) { inclusive = true }
                         }

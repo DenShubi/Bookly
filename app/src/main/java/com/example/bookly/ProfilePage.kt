@@ -41,6 +41,7 @@ import coil.request.ImageRequest
 import com.example.bookly.supabase.UserRepository
 import com.example.bookly.supabase.supabase
 import com.example.bookly.ui.BottomNavigationBar
+import com.example.bookly.util.SessionManager
 import com.example.bookly.viewmodel.WishlistViewModel
 import kotlinx.coroutines.launch
 import java.io.File
@@ -232,6 +233,8 @@ fun ProfileScreen(
                             coroutineScope.launch {
                                 UserRepository.signOut()
                                 wishlistViewModel?.clearWishlist()
+                                // Clear session for auto-login
+                                SessionManager.clearSession(context)
                                 navController.navigate("login") { popUpTo(0) }
                             }
                         }

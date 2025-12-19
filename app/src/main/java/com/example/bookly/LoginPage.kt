@@ -18,10 +18,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.bookly.supabase.SupabaseClientProvider
+import com.example.bookly.util.SessionManager
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.builtin.Email
 import kotlinx.coroutines.launch
@@ -35,6 +37,7 @@ fun LoginScreen(navController: NavController) {
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
+    val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
 
     val isFormValid = remember(emailInput, passwordInput) {
@@ -120,8 +123,13 @@ fun LoginScreen(navController: NavController) {
                             Log.d("Login", "Expires At: ${session.expiresAt}")
 
                             // 3. Check if admin and navigate accordingly
-                            val userEmail = auth.currentUserOrNull()?.email
-                            val destination = if (userEmail == "admin@mail.com") {
+                            val userEmail = auth.currentUserOrNull()?.email ?: ""
+                            val isAdmin = userEmail == "admin@mail.com"
+
+                            // 4. Save session to SharedPreferences for auto-login
+                            SessionManager.saveLoginSession(context, userEmail, isAdmin)
+
+                            val destination = if (isAdmin) {
                                 "admin_dashboard"
                             } else {
                                 "home"

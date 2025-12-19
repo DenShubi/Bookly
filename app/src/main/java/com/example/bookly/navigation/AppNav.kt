@@ -21,6 +21,7 @@ import com.example.bookly.ui.HomeScreen
 import com.example.bookly.ui.PeminjamanScreen
 import com.example.bookly.ui.ReviewListScreen
 import com.example.bookly.ui.ReviewScreen
+import com.example.bookly.ui.SplashScreen
 import com.example.bookly.ui.WishlistScreen
 import com.example.bookly.viewmodel.WishlistViewModel
 
@@ -29,8 +30,9 @@ fun AppNav() {
     val navController = rememberNavController()
     val wishlistViewModel: WishlistViewModel = viewModel()
 
-    // Start Destination dimulai dari login
-    NavHost(navController = navController, startDestination = "login") {
+    // Start Destination dimulai dari splash untuk check session
+    NavHost(navController = navController, startDestination = "splash") {
+        composable("splash") { SplashScreen(navController = navController) }
         composable("login") { LoginScreen(navController = navController) }
         composable("register") { RegisterScreen(navController = navController) }
 
