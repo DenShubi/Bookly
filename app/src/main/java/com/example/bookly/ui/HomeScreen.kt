@@ -84,6 +84,7 @@ fun HomeScreen(
                 item {
                     TopSectionWithOverlappingCard(
                         userName = state.userName, // Nama Asli
+                        userAvatarUrl = state.userAvatarUrl, // Foto Asli
                         categories = categories
                     )
                 }
@@ -141,7 +142,7 @@ fun HomeScreen(
 // --- KOMPONEN UI (Sama seperti sebelumnya) ---
 
 @Composable
-fun TopSectionWithOverlappingCard(userName: String, categories: List<CategoryData>) {
+fun TopSectionWithOverlappingCard(userName: String, userAvatarUrl: String?, categories: List<CategoryData>) {
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = Alignment.TopCenter
@@ -167,12 +168,21 @@ fun TopSectionWithOverlappingCard(userName: String, categories: List<CategoryDat
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(id = R.drawable.ic_launcher_background),
-                        contentDescription = "Profile",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White)
-                    )
+                    if (!userAvatarUrl.isNullOrEmpty()) {
+                        AsyncImage(
+                            model = userAvatarUrl,
+                            contentDescription = "Profile",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.ic_launcher_background),
+                            contentDescription = "Profile",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.size(50.dp).clip(CircleShape).background(Color.White)
+                        )
+                    }
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text(text = "Halo $userName!", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 18.sp)

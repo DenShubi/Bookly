@@ -139,6 +139,7 @@ fun ReviewListContent(
                                 review = review.reviewText ?: "",
                                 photoUrls = review.photoUrls,
                                 isOwnReview = isOwnReview,
+                                profileUrl = review.users?.avatarUrl,
                                 onLongClick = {
                                     if (isOwnReview) {
                                         reviewIdToDelete = review.id
@@ -179,6 +180,7 @@ fun ReviewItemCard(
     review: String,
     photoUrls: List<String> = emptyList(),
     isOwnReview: Boolean = false,
+    profileUrl: String? = null,
     onLongClick: () -> Unit = {}
 ) {
     Card(
@@ -257,7 +259,16 @@ fun ReviewItemCard(
 
             // User Info
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFD3D3D3)))
+                if (!profileUrl.isNullOrEmpty()) {
+                    AsyncImage(
+                        model = profileUrl,
+                        contentDescription = "Profile Picture",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFD3D3D3))
+                    )
+                } else {
+                    Box(modifier = Modifier.size(40.dp).clip(CircleShape).background(Color(0xFFD3D3D3)))
+                }
                 Spacer(modifier = Modifier.width(12.dp))
                 Text(
                     text = if (isOwnReview) "$name (Kamu)" else name,

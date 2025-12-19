@@ -13,6 +13,7 @@ data class HomeUiState(
     val userName: String = "Loading...",
     val popularBooks: List<BookDummy> = emptyList(),
     val recommendedBooks: List<BookDummy> = emptyList(),
+    val userAvatarUrl: String? = null,
     val isLoading: Boolean = true
 )
 
@@ -28,8 +29,11 @@ class HomeViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
 
-            // 1. Ambil Nama User
-            val name = BooksRepository.getCurrentUserName()
+            // 1. Ambil Data User (Nama & Foto)
+            val userProfileResult = com.example.bookly.supabase.UserRepository.getUserProfile()
+            val userProfile = userProfileResult.getOrNull()
+            val name = userProfile?.fullName ?: "User"
+            val avatar = userProfile?.avatarUrl
 
             // 2. Ambil Buku Populer
             val popularResult = BooksRepository.getPopularBooks()
@@ -41,6 +45,7 @@ class HomeViewModel : ViewModel() {
 
             _uiState.value = HomeUiState(
                 userName = name,
+                userAvatarUrl = avatar,
                 popularBooks = popularList,
                 recommendedBooks = recommendedList,
                 isLoading = false

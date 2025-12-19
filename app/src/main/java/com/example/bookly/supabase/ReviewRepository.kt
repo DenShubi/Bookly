@@ -28,7 +28,8 @@ object ReviewRepository {
 
     @Serializable
     data class UserData(
-        @SerialName("full_name") val fullName: String?
+        @SerialName("full_name") val fullName: String?,
+        @SerialName("avatar_url") val avatarUrl: String?
     )
 
     // --- Model untuk Input Data (Insert) ---
@@ -50,7 +51,7 @@ object ReviewRepository {
             val reviews = client.from("reviews").select(
                 columns = Columns.list(
                     "id", "user_id", "book_id", "rating", "review_text", "photo_urls", "created_at",
-                    "users(full_name)" // Join ke tabel users
+                    "users(full_name, avatar_url)" // Join ke tabel users
                 )
             ) {
                 filter {
