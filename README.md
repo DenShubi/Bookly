@@ -51,24 +51,6 @@ Modern Android application untuk manajemen perpustakaan digital dengan fitur len
 - **Storage**: Supabase Storage (book covers, review images, avatars)
 - **Security**: Row Level Security (RLS) Policies
 
-### Key Libraries
-```gradle
-// Compose
-implementation("androidx.compose.ui:ui")
-implementation("androidx.compose.material3:material3")
-
-// Supabase
-implementation("io.github.jan-tennert.supabase:postgrest-kt")
-implementation("io.github.jan-tennert.supabase:auth-kt")
-implementation("io.github.jan-tennert.supabase:storage-kt")
-
-// Image Loading
-implementation("io.coil-kt:coil-compose")
-
-// Navigation
-implementation("androidx.navigation:navigation-compose")
-```
-
 ## 📂 Project Structure
 
 ```
