@@ -315,7 +315,7 @@ fun BookCard(
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
-                    Text(text = "${book.rating ?: 0f} • ${book.availability}", color = Color.Gray, fontSize = 12.sp)
+                    Text(text = String.format("%.1f", book.rating ?: 0f) + " • ${book.availability}", color = GreyText, fontSize = 12.sp)
                 }
             }
             IconButton(onClick = onWishlistClick) {

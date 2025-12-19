@@ -87,6 +87,10 @@ object ReviewRepository {
             )
 
             client.from("reviews").insert(newReview)
+            
+            // Update rating buku setelah review berhasil di-submit
+            calculateAndUpdateBookRating(bookId)
+            
             Result.success(true)
         } catch (e: Exception) {
             Log.e("ReviewRepository", "Error submitting review: ${e.message}")
@@ -111,7 +115,7 @@ object ReviewRepository {
         }
     }
 
-    suspend fun deleteReview(reviewId: String): Result<Boolean> {
+    suspend fun deleteReview(reviewId: String, bookId: String): Result<Boolean> {
         return try {
             val client = SupabaseClientProvider.client
             // Kita tidak perlu cek user manual, karena Supabase RLS di SQL akan menolak otomatis jika bukan miliknya
@@ -120,6 +124,10 @@ object ReviewRepository {
                     eq("id", reviewId)
                 }
             }
+            
+            // Update rating buku setelah review dihapus
+            calculateAndUpdateBookRating(bookId)
+            
             Result.success(true)
         } catch (e: Exception) {
             Log.e("ReviewRepository", "Error deleting review: ${e.message}")
@@ -131,4 +139,45 @@ object ReviewRepository {
     fun getCurrentUserId(): String? {
         return SupabaseClientProvider.client.auth.currentUserOrNull()?.id
     }
+
+    // 4. Hitung dan Update Rating Buku dari Reviews
+    suspend fun calculateAndUpdateBookRating(bookId: String): Result<Float> {
+        return try {
+            val client = SupabaseClientProvider.client ?: throw Exception("Supabase not initialized")
+            
+            // Ambil semua rating untuk buku ini
+            val reviews = client.from("reviews").select(
+                columns = Columns.list("rating")
+            ) {
+                filter {
+                    eq("book_id", bookId)
+                }
+            }.decodeList<RatingOnly>()
+            
+            // Hitung rata-rata rating
+            val averageRating = if (reviews.isEmpty()) {
+                0f
+            } else {
+                reviews.map { it.rating }.average().toFloat()
+            }
+            
+            // Update rating di tabel books
+            client.from("books").update({
+                set("rating", averageRating)
+            }) {
+                filter {
+                    eq("id", bookId)
+                }
+            }
+            
+            Log.d("ReviewRepository", "Updated book $bookId rating to $averageRating")
+            Result.success(averageRating)
+        } catch (e: Exception) {
+            Log.e("ReviewRepository", "Error updating book rating: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    @Serializable
+    private data class RatingOnly(val rating: Int)
 }

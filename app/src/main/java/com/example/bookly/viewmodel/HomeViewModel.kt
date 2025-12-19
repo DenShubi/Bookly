@@ -10,11 +10,11 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 data class HomeUiState(
-    val userName: String = "Loading...",
-    val popularBooks: List<BookDummy> = emptyList(),
-    val recommendedBooks: List<BookDummy> = emptyList(),
-    val userAvatarUrl: String? = null,
-    val isLoading: Boolean = true
+        val userName: String = "Loading...",
+        val popularBooks: List<BookDummy> = emptyList(),
+        val recommendedBooks: List<BookDummy> = emptyList(),
+        val userAvatarUrl: String? = null,
+        val isLoading: Boolean = true
 )
 
 class HomeViewModel : ViewModel() {
@@ -41,28 +41,31 @@ class HomeViewModel : ViewModel() {
 
             // 3. Ambil Rekomendasi
             val recommendedResult = BooksRepository.getRecommendedBooks()
-            val recommendedList = recommendedResult.getOrDefault(emptyList()).map { it.toBookDummy() }
+            val recommendedList =
+                    recommendedResult.getOrDefault(emptyList()).map { it.toBookDummy() }
 
-            _uiState.value = HomeUiState(
-                userName = name,
-                userAvatarUrl = avatar,
-                popularBooks = popularList,
-                recommendedBooks = recommendedList,
-                isLoading = false
-            )
+            _uiState.value =
+                    HomeUiState(
+                            userName = name,
+                            userAvatarUrl = avatar,
+                            popularBooks = popularList,
+                            recommendedBooks = recommendedList,
+                            isLoading = false
+                    )
         }
     }
 
     // Helper: Konversi dari Database Row ke UI Dummy Model
     private fun BooksRepository.BookRow.toBookDummy(): BookDummy {
         return BookDummy(
-            id = this.id,
-            title = this.title,
-            author = this.author,
-            rating = (this.rating ?: 0f).toInt(),
-            stock = this.availableCopies,
-            category = this.category ?: "Umum",
-            coverUrl = this.coverImageUrl ?: ""
+                id = this.id,
+                title = this.title,
+                author = this.author,
+                rating = this.rating ?: 0f,
+                availableCopies = this.availableCopies,
+                totalCopies = this.totalCopies,
+                category = this.category ?: "Umum",
+                coverUrl = this.coverImageUrl ?: ""
         )
     }
 }

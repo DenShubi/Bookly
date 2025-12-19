@@ -41,8 +41,9 @@ data class BookDummy(
         val id: String,
         val title: String,
         val author: String,
-        val rating: Int,
-        val stock: Int,
+        val rating: Float,
+        val availableCopies: Int,
+        val totalCopies: Int,
         val category: String,
         val coverUrl: String
 )
@@ -138,10 +139,11 @@ fun HomeScreen(
                         val book =
                                 Book(
                                         id = bookDummy.id,
-                                        title = bookDummy.title,
-                                        author = bookDummy.author,
-                                        rating = bookDummy.rating.toFloat(),
-                                        availability = "${bookDummy.stock} Eksemplar",
+                                        title = bookDummy.title.ifBlank { "-" },
+                                        author = bookDummy.author.ifBlank { "-" },
+                                        rating = bookDummy.rating,
+                                        availability =
+                                                "${bookDummy.availableCopies}/${bookDummy.totalCopies} tersedia",
                                         category = bookDummy.category,
                                         categoryColor = categoryColor,
                                         coverImage = com.example.bookly.R.drawable.book_cover,
@@ -359,7 +361,11 @@ fun PopularBookCard(book: BookDummy, onClick: () -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(text = "${book.stock} Eksemplar", fontSize = 10.sp, color = Color.Gray)
+                Text(
+                        text = "${book.availableCopies}/${book.totalCopies} tersedia",
+                        fontSize = 10.sp,
+                        color = Color.Gray
+                )
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(
                             Icons.Default.Star,
@@ -367,7 +373,7 @@ fun PopularBookCard(book: BookDummy, onClick: () -> Unit) {
                             tint = Color(0xFFFFC107),
                             modifier = Modifier.size(12.dp)
                     )
-                    Text(text = "${book.rating}", fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                    Text(text = String.format("%.1f", book.rating), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }
@@ -434,7 +440,7 @@ fun RecommendationBookItem(book: BookDummy, onClick: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                            text = "${book.rating ?: 0}",
+                            text = String.format("%.1f", book.rating),
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                     )
@@ -446,7 +452,7 @@ fun RecommendationBookItem(book: BookDummy, onClick: () -> Unit) {
                         verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                            text = "${book.stock} Eksemplar",
+                            text = "${book.availableCopies}/${book.totalCopies} tersedia",
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
                     )

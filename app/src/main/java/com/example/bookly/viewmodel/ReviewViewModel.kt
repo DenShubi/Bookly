@@ -15,7 +15,7 @@ import java.util.UUID
 // Tambahkan field untuk info buku di UI State
 data class ReviewUiState(
     val reviews: List<ReviewRepository.ReviewRow> = emptyList(),
-    val currentUserId: String? = null, // <--- TAMBAHAN INI
+    val currentUserId: String? = null,
 
     // Data Buku untuk tampilan Form
     val bookTitle: String = "",
@@ -24,6 +24,7 @@ data class ReviewUiState(
 
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
+    val successMessage: String? = null,
     val isSubmitSuccess: Boolean = false
 )
 
@@ -93,21 +94,21 @@ class ReviewViewModel : ViewModel() {
     fun deleteReview(reviewId: String, bookId: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true)
-
-            val result = ReviewRepository.deleteReview(reviewId)
-
-            result.fold(
-                onSuccess = {
-                    // Jika berhasil hapus, refresh list review
-                    loadReviews(bookId)
-                },
-                onFailure = { e ->
-                    _uiState.value = _uiState.value.copy(
-                        isLoading = false,
-                        errorMessage = "Gagal menghapus: ${e.message}"
-                    )
-                }
-            )
+            // Panggil repository dengan bookId
+            val result = ReviewRepository.deleteReview(reviewId, bookId)
+            if (result.isSuccess) {
+                // Reload reviews setelah delete
+                loadReviews(bookId)
+                _uiState.value = _uiState.value.copy(
+                    successMessage = "Review berhasil dihapus",
+                    isLoading = false
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    errorMessage = result.exceptionOrNull()?.message ?: "Gagal menghapus review",
+                    isLoading = false
+                )
+            }
         }
     }
 
