@@ -23,6 +23,7 @@ data class AdminAddBookUiState(
     val categoryColor: String = "#a5ed99",
     val imageUri: Uri? = null,
     val imageBytes: ByteArray? = null,
+    val prefilledCoverUrl: String? = null,
     val publisher: String = "",
     val year: Int = 2024,
     val language: String = "Indonesia",
@@ -47,6 +48,7 @@ data class AdminAddBookUiState(
             if (other.imageBytes == null) return false
             if (!imageBytes.contentEquals(other.imageBytes)) return false
         } else if (other.imageBytes != null) return false
+        if (prefilledCoverUrl != other.prefilledCoverUrl) return false
         if (publisher != other.publisher) return false
         if (year != other.year) return false
         if (language != other.language) return false
@@ -66,6 +68,7 @@ data class AdminAddBookUiState(
         result = 31 * result + categoryColor.hashCode()
         result = 31 * result + (imageUri?.hashCode() ?: 0)
         result = 31 * result + (imageBytes?.contentHashCode() ?: 0)
+        result = 31 * result + (prefilledCoverUrl?.hashCode() ?: 0)
         result = 31 * result + publisher.hashCode()
         result = 31 * result + year
         result = 31 * result + language.hashCode()
@@ -114,7 +117,8 @@ class AdminAddBookViewModel : ViewModel() {
     fun updateImage(uri: Uri?, bytes: ByteArray?) {
         _uiState.value = _uiState.value.copy(
             imageUri = uri,
-            imageBytes = bytes
+            imageBytes = bytes,
+            prefilledCoverUrl = if (uri != null) null else _uiState.value.prefilledCoverUrl
         )
     }
 
@@ -142,9 +146,9 @@ class AdminAddBookViewModel : ViewModel() {
         _uiState.value = _uiState.value.copy(
             title = title ?: "",
             author = author ?: "",
-            year = year ?: 2024
+            year = year ?: 2024,
+            prefilledCoverUrl = coverUrl
         )
-        // Note: coverUrl will be handled separately in the UI for preview
     }
 
     fun clearError() {
@@ -168,8 +172,8 @@ class AdminAddBookViewModel : ViewModel() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, errorMessage = null)
 
-            // Upload image if provided
-            var coverImageUrl = ""
+            // Upload image if provided, otherwise use prefilled URL
+            var coverImageUrl = state.prefilledCoverUrl ?: ""
             if (state.imageBytes != null) {
                 val fileName = "book_${UUID.randomUUID()}.jpg"
                 val uploadResult = AdminBooksRepository.uploadBookCover(state.imageBytes, fileName)

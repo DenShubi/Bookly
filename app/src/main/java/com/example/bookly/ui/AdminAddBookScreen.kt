@@ -39,7 +39,6 @@ fun AdminAddBookScreen(
     viewModel: AdminAddBookViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var prefilledCoverUrl by remember { mutableStateOf<String?>(null) }
 
     // Get prefilled data from navigation
     LaunchedEffect(Unit) {
@@ -54,7 +53,6 @@ fun AdminAddBookScreen(
 
             if (title != null || author != null || year != null) {
                 viewModel.prefillData(title, author, year, coverUrl)
-                prefilledCoverUrl = coverUrl
             }
 
             // Clear the data after using it
@@ -160,10 +158,9 @@ fun AdminAddBookScreen(
                 ImageUploadField(
                     label = "Gambar Buku",
                     imageUri = uiState.imageUri,
-                    prefilledUrl = prefilledCoverUrl,
+                    prefilledUrl = uiState.prefilledCoverUrl,
                     onImageSelected = { uri, bytes ->
                         viewModel.updateImage(uri, bytes)
-                        prefilledCoverUrl = null // Clear prefilled URL once user selects new image
                     }
                 )
 
