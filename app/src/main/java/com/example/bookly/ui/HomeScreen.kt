@@ -347,7 +347,6 @@ fun PopularBookCard(book: BookDummy, onClick: () -> Unit) {
                     )
                 }
                 Spacer(modifier = Modifier.weight(1f))
-                Text(text = "12 hr lagi", fontSize = 10.sp, color = Color.Red)
             }
             Spacer(modifier = Modifier.height(8.dp))
             LinearProgressIndicator(
