@@ -89,7 +89,8 @@ fun WishlistScreen(
                 items(wishlistBooks) { book ->
                     WishlistBookCard(
                         book = book,
-                        onRemoveClick = { wishlistViewModel.removeFromWishlist(book.title) }
+                        onRemoveClick = { wishlistViewModel.removeFromWishlist(book.title) },
+                        onBookClick = { navController.navigate("book_detail/${book.id}") }
                     )
                 }
             }
@@ -166,9 +167,15 @@ private fun WishlistTopAppBar(navController: NavController) {
 }
 
 @Composable
-private fun WishlistBookCard(book: Book, onRemoveClick: () -> Unit) {
+private fun WishlistBookCard(
+    book: Book, 
+    onRemoveClick: () -> Unit,
+    onBookClick: () -> Unit = {}
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onBookClick() },
         shape = RoundedCornerShape(18.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 5.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White)
