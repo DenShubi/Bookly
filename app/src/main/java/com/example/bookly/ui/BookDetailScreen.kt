@@ -15,6 +15,7 @@ import androidx.compose.material.icons.outlined.Favorite
 import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -53,6 +54,15 @@ fun BookDetailScreen(
 
     LaunchedEffect(bookId) {
         detailViewModel.loadBookDetail(bookId)
+    }
+    
+    // Reload book detail saat composition kembali aktif (misal setelah submit review)
+    LaunchedEffect(Unit) {
+        snapshotFlow { navController.currentBackStackEntry }
+            .collect {
+                // Reload ketika user kembali ke BookDetailScreen
+                detailViewModel.loadBookDetail(bookId)
+            }
     }
 
     LaunchedEffect(toastMessage) {

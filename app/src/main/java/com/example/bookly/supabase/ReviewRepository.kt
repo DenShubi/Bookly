@@ -88,8 +88,15 @@ object ReviewRepository {
 
             client.from("reviews").insert(newReview)
             
+            Log.d("ReviewRepository", "Review inserted successfully, now updating book rating...")
+            
             // Update rating buku setelah review berhasil di-submit
-            calculateAndUpdateBookRating(bookId)
+            val ratingResult = calculateAndUpdateBookRating(bookId)
+            ratingResult.onSuccess { newRating ->
+                Log.d("ReviewRepository", "Book rating updated to: $newRating")
+            }.onFailure { error ->
+                Log.e("ReviewRepository", "Failed to update book rating: ${error.message}")
+            }
             
             Result.success(true)
         } catch (e: Exception) {
@@ -145,6 +152,8 @@ object ReviewRepository {
         return try {
             val client = SupabaseClientProvider.client ?: throw Exception("Supabase not initialized")
             
+            Log.d("ReviewRepository", "Starting calculateAndUpdateBookRating for bookId: $bookId")
+            
             // Ambil semua rating untuk buku ini
             val reviews = client.from("reviews").select(
                 columns = Columns.list("rating")
@@ -154,12 +163,17 @@ object ReviewRepository {
                 }
             }.decodeList<RatingOnly>()
             
+            Log.d("ReviewRepository", "Found ${reviews.size} reviews for book $bookId")
+            Log.d("ReviewRepository", "Ratings: ${reviews.map { it.rating }}")
+            
             // Hitung rata-rata rating
             val averageRating = if (reviews.isEmpty()) {
                 0f
             } else {
                 reviews.map { it.rating }.average().toFloat()
             }
+            
+            Log.d("ReviewRepository", "Calculated average rating: $averageRating")
             
             // Update rating di tabel books
             client.from("books").update({
@@ -170,10 +184,11 @@ object ReviewRepository {
                 }
             }
             
-            Log.d("ReviewRepository", "Updated book $bookId rating to $averageRating")
+            Log.d("ReviewRepository", "Successfully updated book $bookId rating to $averageRating")
             Result.success(averageRating)
         } catch (e: Exception) {
-            Log.e("ReviewRepository", "Error updating book rating: ${e.message}")
+            Log.e("ReviewRepository", "Error updating book rating: ${e.message}", e)
+            Log.e("ReviewRepository", "Stack trace: ${e.stackTraceToString()}")
             Result.failure(e)
         }
     }
