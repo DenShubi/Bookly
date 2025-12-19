@@ -33,6 +33,7 @@ fun RequestBookScreen(
     val context = LocalContext.current
     val scrollState = rememberScrollState()
 
+    // Pesan Sukses
     LaunchedEffect(state.isSuccess) {
         if (state.isSuccess) {
             Toast.makeText(context, "Permintaan berhasil dikirim!", Toast.LENGTH_LONG).show()
@@ -40,12 +41,11 @@ fun RequestBookScreen(
         }
     }
 
-    // Picker Cover
+    // Launcher Gambar & File
     val coverPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.PickVisualMedia(),
         onResult = { viewModel.onCoverSelected(it) }
     )
-    // Picker File
     val filePicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { viewModel.onFileSelected(it) }
@@ -79,6 +79,7 @@ fun RequestBookScreen(
                 )
             }
 
+            // Form Input
             OutlinedTextField(
                 value = state.title,
                 onValueChange = { viewModel.onTitleChange(it) },
@@ -106,7 +107,7 @@ fun RequestBookScreen(
                 maxLines = 4
             )
 
-            // Upload Cover
+            // Tombol Upload
             Button(
                 onClick = { coverPicker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)) },
                 modifier = Modifier.fillMaxWidth(),
@@ -116,7 +117,6 @@ fun RequestBookScreen(
                 Text(if (state.coverUri != null) "Cover Terpilih" else "Upload Cover (Wajib)")
             }
 
-            // Upload File
             OutlinedButton(
                 onClick = { filePicker.launch(arrayOf("application/pdf")) },
                 modifier = Modifier.fillMaxWidth()
@@ -125,10 +125,12 @@ fun RequestBookScreen(
                 Text(if (state.supportingFileUri != null) "File Terpilih" else "Upload PDF (Opsional)")
             }
 
+            // Pesan Error
             if (state.errorMessage != null) {
                 Text(state.errorMessage!!, color = Color.Red)
             }
 
+            // Tombol Kirim
             Button(
                 onClick = { viewModel.submitRequest(context) },
                 modifier = Modifier.fillMaxWidth().height(50.dp),

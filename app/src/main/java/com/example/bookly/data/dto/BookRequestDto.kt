@@ -1,3 +1,4 @@
+// Pastikan baris ini SAMA PERSIS. Jangan "com.example.bookly.dto" atau lainnya.
 package com.example.bookly.data.dto
 
 import kotlinx.serialization.Serializable
