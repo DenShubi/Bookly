@@ -1,8 +1,6 @@
 package com.example.bookly.supabase
 
-import io.github.jan.supabase.storage.upload
-import com.example.bookly.supabase.SupabaseClientProvider
-import io.github.jan.supabase.storage.upload
+import io.github.jan.supabase.storage.storage
 
 
 class PaymentRepository {
@@ -14,9 +12,10 @@ class PaymentRepository {
 
         bucket.upload(
             path = fileName,
-            data = bytes,
+            data = bytes
+        ) {
             upsert = true
-        )
+        }
 
         return bucket.publicUrl(fileName)
     }

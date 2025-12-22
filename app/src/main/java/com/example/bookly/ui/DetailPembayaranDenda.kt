@@ -201,6 +201,7 @@ fun DetailDendaContent(
                     val bytes = uriToByteArray(context, it)
 
                     viewModel.uploadBuktiPembayaran(
+                        dendaId = dendaId,
                         imageBytes = bytes,
                         onSuccess = {
                             isLoading = false

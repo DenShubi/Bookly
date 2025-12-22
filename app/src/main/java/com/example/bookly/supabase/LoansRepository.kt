@@ -20,10 +20,14 @@ object LoansRepository {
         @SerialName("book_id") val bookId: String = "",
         @SerialName("borrow_date") val borrowDate: String? = null,
         @SerialName("due_date") val dueDate: String? = null,
-        @SerialName("return_date") val returnDate: String? = null,
+        @SerialName("returned_at") val returnedAt: String? = null,
         val status: String = "active",
         @SerialName("extension_count") val extensionCount: Int = 0,
-        @SerialName("max_extensions") val maxExtensions: Int = 2
+        @SerialName("max_extensions") val maxExtensions: Int = 2,
+        val condition: String? = null,
+        val notes: String? = null,
+        @SerialName("created_at") val createdAt: String? = null,
+        @SerialName("updated_at") val updatedAt: String? = null
     )
 
     @Serializable
@@ -37,9 +41,11 @@ object LoansRepository {
     @Serializable
     data class BorrowingRecordUpdate(
         val status: String? = null,
-        @SerialName("return_date") val returnDate: String? = null,
+        @SerialName("returned_at") val returnedAt: String? = null,
         @SerialName("due_date") val dueDate: String? = null,
-        @SerialName("extension_count") val extensionCount: Int? = null
+        @SerialName("extension_count") val extensionCount: Int? = null,
+        val condition: String? = null,
+        val notes: String? = null
     )
 
 
@@ -229,7 +235,9 @@ object LoansRepository {
             val client = SupabaseClientProvider.client
             val updateData = BorrowingRecordUpdate(
                 status = "returned",
-                returnDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                returnedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(Date())
             )
 
             client.from("borrowing_records").update(updateData) {
