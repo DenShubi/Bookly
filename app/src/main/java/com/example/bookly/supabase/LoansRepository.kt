@@ -18,28 +18,26 @@ object LoansRepository {
         val id: String = "",
         @SerialName("user_id") val userId: String = "",
         @SerialName("book_id") val bookId: String = "",
-        @SerialName("borrow_date") val borrowDate: String? = null,
-        @SerialName("due_date") val dueDate: String? = null,
-        @SerialName("return_date") val returnDate: String? = null,
-        val status: String = "active",
-        @SerialName("extension_count") val extensionCount: Int = 0,
-        @SerialName("max_extensions") val maxExtensions: Int = 2
+        @SerialName("borrowed_at") val borrowedAt: String? = null,
+        @SerialName("due_at") val dueAt: String? = null,
+        @SerialName("returned_at") val returnedAt: String? = null,
+        val status: String = "borrowed",
+        @SerialName("fine_amount") val fineAmount: Double? = 0.0
     )
 
     @Serializable
     data class BorrowingRecordInsert(
         @SerialName("user_id") val userId: String,
         @SerialName("book_id") val bookId: String,
-        @SerialName("borrow_date") val borrowDate: String,
-        @SerialName("due_date") val dueDate: String? = null
+        @SerialName("borrowed_at") val borrowedAt: String,
+        @SerialName("due_at") val dueAt: String? = null
     )
 
     @Serializable
     data class BorrowingRecordUpdate(
         val status: String? = null,
-        @SerialName("return_date") val returnDate: String? = null,
-        @SerialName("due_date") val dueDate: String? = null,
-        @SerialName("extension_count") val extensionCount: Int? = null
+        @SerialName("returned_at") val returnedAt: String? = null,
+        @SerialName("due_at") val dueAt: String? = null
     )
 
 
@@ -70,8 +68,8 @@ object LoansRepository {
             val insertData = BorrowingRecordInsert(
                 userId = userId,
                 bookId = bookId,
-                borrowDate = borrowDateStr,
-                dueDate = dueDateStr
+                borrowedAt = borrowDateStr,
+                dueAt = dueDateStr
             )
 
             // Insert and get response
@@ -83,8 +81,8 @@ object LoansRepository {
                 ?: return@withContext Result.failure(Exception("Failed to create borrowing record"))
 
             // Build LoanRow
-            val borrowedAtDate = parseIsoToDate(createdRecord.borrowDate)
-            val returnDeadline = parseIsoToDate(createdRecord.dueDate) ?: borrowedAtDate?.let { d ->
+            val borrowedAtDate = parseIsoToDate(createdRecord.borrowedAt)
+            val returnDeadline = parseIsoToDate(createdRecord.dueAt) ?: borrowedAtDate?.let { d ->
                 Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
 
@@ -99,8 +97,8 @@ object LoansRepository {
                 bookAuthor = bookRow2?.author,
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = createdRecord.status,
-                extensionCount = createdRecord.extensionCount,
-                maxExtensions = createdRecord.maxExtensions
+                extensionCount = 0,
+                maxExtensions = 2
             )
 
             Result.success(loanRow)
@@ -117,13 +115,13 @@ object LoansRepository {
             val client = SupabaseClientProvider.client
             val records = client.from("borrowing_records").select {
                 filter { eq("user_id", userId) }
-                order("borrow_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                order("borrowed_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
             }.decodeList<BorrowingRecordRow>()
 
             val list = records.map { record ->
-                val borrowedAtDate = parseIsoToDate(record.borrowDate)
+                val borrowedAtDate = parseIsoToDate(record.borrowedAt)
                 val duration = 14
-                val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAtDate?.let { d ->
+                val returnDeadline = parseIsoToDate(record.dueAt) ?: borrowedAtDate?.let { d ->
                     Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
                 }
                 val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
@@ -138,8 +136,8 @@ object LoansRepository {
                     bookAuthor = bookRow2?.author,
                     coverImageUrl = bookRow2?.coverImageUrl,
                     status = record.status,
-                    extensionCount = record.extensionCount,
-                    maxExtensions = record.maxExtensions
+                    extensionCount = 0,
+                    maxExtensions = 2
                 )
             }
 
@@ -158,9 +156,9 @@ object LoansRepository {
             }.decodeSingleOrNull<BorrowingRecordRow>()
                 ?: return@withContext Result.failure(Exception("Loan not found"))
 
-            val borrowedAt = parseIsoToDate(record.borrowDate)
+            val borrowedAt = parseIsoToDate(record.borrowedAt)
             val duration = 14
-            val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAt?.let { d ->
+            val returnDeadline = parseIsoToDate(record.dueAt) ?: borrowedAt?.let { d ->
                 Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
             val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
@@ -175,8 +173,8 @@ object LoansRepository {
                 bookAuthor = bookRow2?.author,
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = record.status,
-                extensionCount = record.extensionCount,
-                maxExtensions = record.maxExtensions
+                extensionCount = 0,
+                maxExtensions = 2
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
@@ -192,14 +190,14 @@ object LoansRepository {
             val client = SupabaseClientProvider.client
             val record = client.from("borrowing_records").select {
                 filter { eq("user_id", userId) }
-                order("borrow_date", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
+                order("borrowed_at", io.github.jan.supabase.postgrest.query.Order.DESCENDING)
                 limit(1)
             }.decodeSingleOrNull<BorrowingRecordRow>()
                 ?: return@withContext Result.failure(Exception("No active loan"))
 
-            val borrowedAt = parseIsoToDate(record.borrowDate)
+            val borrowedAt = parseIsoToDate(record.borrowedAt)
             val duration = 14
-            val returnDeadline = parseIsoToDate(record.dueDate) ?: borrowedAt?.let { d ->
+            val returnDeadline = parseIsoToDate(record.dueAt) ?: borrowedAt?.let { d ->
                 Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
             }
             val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
@@ -214,8 +212,8 @@ object LoansRepository {
                 bookAuthor = bookRow2?.author,
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = record.status,
-                extensionCount = record.extensionCount,
-                maxExtensions = record.maxExtensions
+                extensionCount = 0,
+                maxExtensions = 2
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
@@ -229,7 +227,9 @@ object LoansRepository {
             val client = SupabaseClientProvider.client
             val updateData = BorrowingRecordUpdate(
                 status = "returned",
-                returnDate = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+                returnedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                    timeZone = TimeZone.getTimeZone("UTC")
+                }.format(Date())
             )
 
             client.from("borrowing_records").update(updateData) {
@@ -256,14 +256,12 @@ object LoansRepository {
                 time = currentReturn
                 add(Calendar.DAY_OF_YEAR, loan.durationDays)
             }.time
-            val newCount = (loan.extensionCount ?: 0) + 1
 
             val client = SupabaseClientProvider.client
             val updateData = BorrowingRecordUpdate(
-                dueDate = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+                dueAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
                     timeZone = TimeZone.getTimeZone("UTC")
-                }.format(newReturn),
-                extensionCount = newCount
+                }.format(newReturn)
             )
 
             client.from("borrowing_records").update(updateData) {
