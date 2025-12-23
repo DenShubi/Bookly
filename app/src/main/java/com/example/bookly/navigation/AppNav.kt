@@ -136,6 +136,20 @@ fun AppNav() {
             com.example.bookly.ui.StatusPeminjaman(navController = navController, loanId = loanId)
         }
 
+        // --- FINE PAYMENT DETAIL ---
+        composable(
+                route = "fine_payment_detail/{fineId}",
+                arguments = listOf(navArgument("fineId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val fineId = backStackEntry.arguments?.getString("fineId") ?: ""
+            com.example.bookly.ui.FinePaymentDetailScreen(navController = navController, fineId = fineId)
+        }
+
+        // --- ADMIN PAYMENT VERIFICATION ---
+        composable("admin_payment_verification") {
+            com.example.bookly.ui.AdminPaymentVerificationScreen(navController = navController)
+        }
+
         // --- REVIEW LIST ---
         composable(
                 route = "review/{bookId}",

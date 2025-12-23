@@ -97,7 +97,11 @@ fun AdminDashboardScreen(
                 "buku" -> AdminBooksTab(navController, viewModel)
                 "permintaan" -> AdminBookRequestScreen(navController)
                 "denda" -> AdminFinesScreen()
-                "verifikasi" -> ComingSoonScreen("Verifikasi")
+                "verifikasi" -> {
+                    LaunchedEffect(Unit) {
+                        navController.navigate("admin_payment_verification")
+                    }
+                }
             }
         }
     }

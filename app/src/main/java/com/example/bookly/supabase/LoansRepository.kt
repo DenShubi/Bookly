@@ -140,6 +140,22 @@ object LoansRepository {
                 val lateFeeResult = calculateLateFee(record.id)
                 val lateFee = lateFeeResult.getOrNull() ?: 0.0
 
+                // Create or update fine if overdue and not returned
+                if (lateFee > 0 && record.returnedAt == null) {
+                    try {
+                        val hoursOverdue = (lateFee / 0.10).toInt()
+                        val description = "Keterlambatan pengembalian $hoursOverdue jam"
+                        FinesRepository.createOrUpdateFineForLoan(
+                            borrowingRecordId = record.id,
+                            bookId = record.bookId,
+                            amount = lateFee,
+                            description = description
+                        )
+                    } catch (e: Exception) {
+                        Log.e(TAG, "Error creating/updating fine for loan ${record.id}", e)
+                    }
+                }
+
                 LoanRow(
                     id = record.id,
                     bookId = record.bookId,

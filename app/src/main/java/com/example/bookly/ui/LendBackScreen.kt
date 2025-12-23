@@ -91,7 +91,24 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                     val borrowedAtDate = l.borrowedAt ?: today
                     val returnDeadlineDate = l.returnDeadline ?: today
                     val daysPassed = ((today.time - borrowedAtDate.time) / (1000 * 60 * 60 * 24)).toInt()
-                    val daysRemaining = ((returnDeadlineDate.time - today.time) / (1000 * 60 * 60 * 24)).toInt()
+
+                    // Calculate remaining/overdue time
+                    val remainingMillis = returnDeadlineDate.time - today.time
+                    val daysRemaining = (Math.abs(remainingMillis) / (1000 * 60 * 60 * 24)).toInt()
+                    val hoursRemaining = (Math.abs(remainingMillis) / (1000 * 60 * 60)).toInt()
+                    val minutesRemaining = (Math.abs(remainingMillis) / (1000 * 60)).toInt()
+                    val isOverdue = remainingMillis < 0
+
+                    val timeRemainingText = when {
+                        isOverdue -> {
+                            if (daysRemaining > 0) "$daysRemaining hari terlambat"
+                            else if (hoursRemaining > 0) "$hoursRemaining jam terlambat"
+                            else "$minutesRemaining menit terlambat"
+                        }
+                        daysRemaining > 0 -> "$daysRemaining hari lagi"
+                        hoursRemaining > 0 -> "$hoursRemaining jam lagi"
+                        else -> "$minutesRemaining menit lagi"
+                    }
 
                     Column(
                         modifier = Modifier
@@ -167,7 +184,11 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                                         Spacer(modifier = Modifier.height(6.dp))
                                         if (timePresent) Text(text = "${sdfTime.format(returnDeadlineDate)} WIB", color = GreyText)
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text(text = if (daysRemaining >= 0) "$daysRemaining hari lagi" else "${-daysRemaining} hari terlambat", color = Color(0xFF2E8B57))
+                                        Text(
+                                            text = timeRemainingText,
+                                            color = if (isOverdue) Color.Red else Color(0xFF2E8B57),
+                                            fontWeight = if (isOverdue) FontWeight.Bold else FontWeight.Normal
+                                        )
                                     }
                                 }
                             }
