@@ -153,8 +153,12 @@ fun LendingScreen(navController: NavController, bookId: String) {
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                     val today = Date()
-                                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id"))
-                                    val cal = Calendar.getInstance().apply { time = today; add(Calendar.DAY_OF_YEAR, borrowDays) }
+                                    // Use WIB timezone for displaying dates
+                                    val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id")).apply {
+                                        timeZone = wibTimeZone
+                                    }
+                                    val cal = Calendar.getInstance(wibTimeZone).apply { time = today; add(Calendar.DAY_OF_YEAR, borrowDays) }
                                     val returnDate = cal.time
 
                                     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -96,7 +96,7 @@ fun AdminDashboardScreen(
             when (activeTab) {
                 "buku" -> AdminBooksTab(navController, viewModel)
                 "permintaan" -> AdminBookRequestScreen(navController)
-                "denda" -> ComingSoonScreen("Denda")
+                "denda" -> AdminFinesScreen()
                 "verifikasi" -> ComingSoonScreen("Verifikasi")
             }
         }

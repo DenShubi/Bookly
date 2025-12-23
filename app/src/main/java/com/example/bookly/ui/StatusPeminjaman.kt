@@ -80,8 +80,14 @@ fun StatusPeminjaman(navController: NavController, loanId: String?) {
                 }
                 loan != null -> {
                     val l = loan!!
-                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id"))
-                    val sdfTime = SimpleDateFormat("HH:mm", Locale("id"))
+                    // Use WIB timezone for displaying dates
+                    val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id")).apply {
+                        timeZone = wibTimeZone
+                    }
+                    val sdfTime = SimpleDateFormat("HH:mm", Locale("id")).apply {
+                        timeZone = wibTimeZone
+                    }
 
                     Column(modifier = Modifier
                         .fillMaxSize()
@@ -225,15 +231,23 @@ fun StatusPeminjaman(navController: NavController, loanId: String?) {
                                     Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.End) {
                                         Text(text = "${l.durationDays} Hari", fontWeight = FontWeight.SemiBold)
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        Text(text = l.status ?: "Baik", fontWeight = FontWeight.SemiBold)
+                                        Text(text = "Baik", fontWeight = FontWeight.SemiBold)
                                         Spacer(modifier = Modifier.height(6.dp))
-                                        Text(text = "Tidak Ada", color = BottomNavGreen, fontWeight = FontWeight.SemiBold)
+                                        if (l.lateFee != null && l.lateFee > 0.0) {
+                                            Text(text = "Rp ${String.format(Locale.US, "%.2f", l.lateFee)}", color = Color.Red, fontWeight = FontWeight.SemiBold)
+                                        } else {
+                                            Text(text = "Tidak Ada", color = BottomNavGreen, fontWeight = FontWeight.SemiBold)
+                                        }
                                         Spacer(modifier = Modifier.height(6.dp))
                                         Box(modifier = Modifier
                                             .clip(RoundedCornerShape(8.dp))
-                                            .background(Color(0xFFB9F6CA))
+                                            .background(if (l.lateFee != null && l.lateFee > 0.0) Color(0xFFFFEBEE) else Color(0xFFB9F6CA))
                                             .padding(horizontal = 10.dp, vertical = 6.dp)) {
-                                            Text(text = "Tidak Ada Denda", color = BottomNavGreen, fontWeight = FontWeight.SemiBold)
+                                            Text(
+                                                text = if (l.lateFee != null && l.lateFee > 0.0) "Perlu Dibayar" else "Tidak Ada Denda",
+                                                color = if (l.lateFee != null && l.lateFee > 0.0) Color.Red else BottomNavGreen,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
                                         }
                                     }
                                 }
@@ -255,9 +269,17 @@ fun StatusPeminjaman(navController: NavController, loanId: String?) {
                                     Column {
                                         Text(text = "ID Transaksi: #${l.id}", color = BottomNavGreen, fontWeight = FontWeight.SemiBold)
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        Text(text = "Buku telah dikembalikan dalam kondisi baik. Tidak ada denda.", color = GreyText)
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Text(text = "Terima kasih telah menggunakan layanan perpustakaan dengan baik.", color = GreyText.copy(alpha = 0.8f), fontSize = 13.sp)
+                                        if (l.lateFee != null && l.lateFee > 0.0) {
+                                            Text(text = "Buku telah dikembalikan dalam kondisi baik.", color = GreyText)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(text = "Denda keterlambatan: Rp ${String.format(Locale.US, "%.2f", l.lateFee)}", color = Color.Red, fontWeight = FontWeight.SemiBold)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(text = "Silakan segera melakukan pembayaran denda.", color = GreyText.copy(alpha = 0.8f), fontSize = 13.sp)
+                                        } else {
+                                            Text(text = "Buku telah dikembalikan dalam kondisi baik. Tidak ada denda.", color = GreyText)
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Text(text = "Terima kasih telah menggunakan layanan perpustakaan dengan baik.", color = GreyText.copy(alpha = 0.8f), fontSize = 13.sp)
+                                        }
                                     }
                                 }
                             }

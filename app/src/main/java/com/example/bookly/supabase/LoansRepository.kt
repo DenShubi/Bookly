@@ -3,10 +3,13 @@ package com.example.bookly.supabase
 import android.util.Log
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.from
+import io.github.jan.supabase.postgrest.postgrest
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -50,19 +53,20 @@ object LoansRepository {
             val bookRow = bookResp.getOrNull() ?: return@withContext Result.failure(Exception("Buku tidak ditemukan"))
             if (bookRow.availableCopies <= 0) return@withContext Result.failure(Exception("Buku tidak tersedia"))
 
-            // prepare dates
+            // prepare dates - use WIB timezone
             val duration = 14
-            val borrowDateStr = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                timeZone = TimeZone.getTimeZone("UTC")
-            }.format(Date())
-            val borrowDateForCalc = parseIsoToDate(borrowDateStr)
-            val dueDateStr = borrowDateForCalc?.let {
-                Calendar.getInstance().apply { time = it; add(Calendar.DAY_OF_YEAR, duration) }.time.let { d ->
-                    SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                        timeZone = TimeZone.getTimeZone("UTC")
-                    }.format(d)
-                }
+            val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+            val now = Date()
+
+            // Convert current WIB time to UTC for Supabase
+            val borrowDateStr = getCurrentTimeInUTC()
+
+            // Calculate due date in WIB, then convert to UTC
+            val dueCalendar = Calendar.getInstance(wibTimeZone).apply {
+                time = now
+                add(Calendar.DAY_OF_YEAR, duration)
             }
+            val dueDateStr = dateToUTC(dueCalendar.time)
 
             val client = SupabaseClientProvider.client
             val insertData = BorrowingRecordInsert(
@@ -87,6 +91,11 @@ object LoansRepository {
             }
 
             val bookRow2 = BooksRepository.getBookById(createdRecord.bookId).getOrNull()
+
+            // Calculate late fee
+            val lateFeeResult = calculateLateFee(createdRecord.id)
+            val lateFee = lateFeeResult.getOrNull() ?: 0.0
+
             val loanRow = LoanRow(
                 id = createdRecord.id,
                 bookId = createdRecord.bookId,
@@ -98,7 +107,8 @@ object LoansRepository {
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = createdRecord.status,
                 extensionCount = 0,
-                maxExtensions = 2
+                maxExtensions = 2,
+                lateFee = lateFee
             )
 
             Result.success(loanRow)
@@ -126,6 +136,10 @@ object LoansRepository {
                 }
                 val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
 
+                // Calculate late fee
+                val lateFeeResult = calculateLateFee(record.id)
+                val lateFee = lateFeeResult.getOrNull() ?: 0.0
+
                 LoanRow(
                     id = record.id,
                     bookId = record.bookId,
@@ -137,7 +151,8 @@ object LoansRepository {
                     coverImageUrl = bookRow2?.coverImageUrl,
                     status = record.status,
                     extensionCount = 0,
-                    maxExtensions = 2
+                    maxExtensions = 2,
+                    lateFee = lateFee
                 )
             }
 
@@ -163,6 +178,10 @@ object LoansRepository {
             }
             val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
 
+            // Calculate late fee
+            val lateFeeResult = calculateLateFee(record.id)
+            val lateFee = lateFeeResult.getOrNull() ?: 0.0
+
             val loanRow = LoanRow(
                 id = record.id,
                 bookId = record.bookId,
@@ -174,7 +193,8 @@ object LoansRepository {
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = record.status,
                 extensionCount = 0,
-                maxExtensions = 2
+                maxExtensions = 2,
+                lateFee = lateFee
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
@@ -202,6 +222,10 @@ object LoansRepository {
             }
             val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
 
+            // Calculate late fee
+            val lateFeeResult = calculateLateFee(record.id)
+            val lateFee = lateFeeResult.getOrNull() ?: 0.0
+
             val loanRow = LoanRow(
                 id = record.id,
                 bookId = record.bookId,
@@ -213,7 +237,8 @@ object LoansRepository {
                 coverImageUrl = bookRow2?.coverImageUrl,
                 status = record.status,
                 extensionCount = 0,
-                maxExtensions = 2
+                maxExtensions = 2,
+                lateFee = lateFee
             )
             Result.success(loanRow)
         } catch (t: Throwable) {
@@ -227,9 +252,7 @@ object LoansRepository {
             val client = SupabaseClientProvider.client
             val updateData = BorrowingRecordUpdate(
                 status = "returned",
-                returnedAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
-                }.format(Date())
+                returnedAt = getCurrentTimeInUTC()
             )
 
             client.from("borrowing_records").update(updateData) {
@@ -252,16 +275,16 @@ object LoansRepository {
                 return@withContext Result.failure(Exception("Maximum extensions reached"))
             }
 
-            val newReturn = Calendar.getInstance().apply {
+            // Extend in WIB timezone
+            val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+            val newReturn = Calendar.getInstance(wibTimeZone).apply {
                 time = currentReturn
                 add(Calendar.DAY_OF_YEAR, loan.durationDays)
             }.time
 
             val client = SupabaseClientProvider.client
             val updateData = BorrowingRecordUpdate(
-                dueAt = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
-                    timeZone = TimeZone.getTimeZone("UTC")
-                }.format(newReturn)
+                dueAt = dateToUTC(newReturn)
             )
 
             client.from("borrowing_records").update(updateData) {
@@ -271,6 +294,77 @@ object LoansRepository {
             Result.success(Unit)
         } catch (t: Throwable) {
             Log.e(TAG, "Error extending loan", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Calculate late fee for a borrowing record by calling Supabase function.
+     * @param borrowingRecordId The ID of the borrowing record
+     * @param hourlyRate The hourly rate for late fees (default: 0.10)
+     * @return The calculated late fee amount
+     */
+    suspend fun calculateLateFee(borrowingRecordId: String, hourlyRate: Double = 0.10): Result<Double> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+
+            // Call the calculate_late_fee RPC function
+            val params = buildJsonObject {
+                put("p_borrowing_record_id", borrowingRecordId)
+                put("p_hourly_rate", hourlyRate)
+            }
+
+            val response = client.postgrest.rpc("calculate_late_fee", params).decodeAs<Double>()
+
+            Result.success(response)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error calculating late fee", t)
+            Result.failure(t)
+        }
+    }
+
+    /**
+     * Get all overdue loans (for admin view)
+     */
+    suspend fun getAllOverdueLoans(): Result<List<LoanRow>> = withContext(Dispatchers.IO) {
+        try {
+            val client = SupabaseClientProvider.client
+            val records = client.from("borrowing_records").select {
+                filter { eq("status", "overdue") }
+                order("due_at", io.github.jan.supabase.postgrest.query.Order.ASCENDING)
+            }.decodeList<BorrowingRecordRow>()
+
+            val list = records.map { record ->
+                val borrowedAtDate = parseIsoToDate(record.borrowedAt)
+                val duration = 14
+                val returnDeadline = parseIsoToDate(record.dueAt) ?: borrowedAtDate?.let { d ->
+                    Calendar.getInstance().apply { time = d; add(Calendar.DAY_OF_YEAR, duration) }.time
+                }
+                val bookRow2 = BooksRepository.getBookById(record.bookId).getOrNull()
+
+                // Calculate late fee
+                val lateFeeResult = calculateLateFee(record.id)
+                val lateFee = lateFeeResult.getOrNull() ?: 0.0
+
+                LoanRow(
+                    id = record.id,
+                    bookId = record.bookId,
+                    borrowedAt = borrowedAtDate,
+                    returnDeadline = returnDeadline,
+                    durationDays = duration,
+                    bookTitle = bookRow2?.title,
+                    bookAuthor = bookRow2?.author,
+                    coverImageUrl = bookRow2?.coverImageUrl,
+                    status = record.status,
+                    extensionCount = 0,
+                    maxExtensions = 2,
+                    lateFee = lateFee
+                )
+            }
+
+            Result.success(list)
+        } catch (t: Throwable) {
+            Log.e(TAG, "Error fetching overdue loans", t)
             Result.failure(t)
         }
     }
@@ -286,9 +380,13 @@ object LoansRepository {
         val coverImageUrl: String? = null,
         val status: String? = null,
         val extensionCount: Int? = 0,
-        val maxExtensions: Int? = 2
+        val maxExtensions: Int? = 2,
+        val lateFee: Double? = null
     )
 
+    /**
+     * Parse ISO date string from Supabase (UTC) and convert to WIB (UTC+7)
+     */
     private fun parseIsoToDate(iso: String?): Date? {
         if (iso == null) return null
         val candidates = listOf(
@@ -300,16 +398,41 @@ object LoansRepository {
         for (fmt in candidates) {
             try {
                 val sdf = SimpleDateFormat(fmt, Locale.US)
-                if (fmt.endsWith("'Z'")) sdf.timeZone = TimeZone.getTimeZone("UTC")
+                // Parse as UTC (Supabase database timezone)
+                sdf.timeZone = TimeZone.getTimeZone("UTC")
                 val cleaned = iso
                 // handle fractional seconds by splitting on '.'
                 val toParse = cleaned.split(".")[0] + if (fmt.contains("'Z'") && cleaned.endsWith("Z")) "Z" else ""
-                return sdf.parse(toParse)
+                val utcDate = sdf.parse(toParse)
+
+                // Convert UTC to WIB (UTC+7)
+                // The Date object is already in UTC, we just return it
+                // The conversion to WIB will happen when displaying
+                return utcDate
             } catch (_: Throwable) {
                 // try next
             }
         }
         return null
+    }
+
+    /**
+     * Convert current WIB time to UTC for Supabase
+     */
+    private fun getCurrentTimeInUTC(): String {
+        val now = Date()
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(now)
+    }
+
+    /**
+     * Convert Date to UTC string for Supabase
+     */
+    private fun dateToUTC(date: Date): String {
+        return SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'", Locale.US).apply {
+            timeZone = TimeZone.getTimeZone("UTC")
+        }.format(date)
     }
 
     private fun getCurrentUserId(): String? {

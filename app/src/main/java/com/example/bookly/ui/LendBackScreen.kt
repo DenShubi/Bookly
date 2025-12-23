@@ -79,8 +79,14 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                 }
                 loan != null -> {
                     val l = loan!!
-                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id"))
-                    val sdfTime = SimpleDateFormat("HH:mm", Locale("id"))
+                    // Use WIB timezone for displaying dates
+                    val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+                    val sdf = SimpleDateFormat("dd MMM yyyy", Locale("id")).apply {
+                        timeZone = wibTimeZone
+                    }
+                    val sdfTime = SimpleDateFormat("HH:mm", Locale("id")).apply {
+                        timeZone = wibTimeZone
+                    }
                     val today = Date()
                     val borrowedAtDate = l.borrowedAt ?: today
                     val returnDeadlineDate = l.returnDeadline ?: today
@@ -180,6 +186,28 @@ fun PeminjamanScreen1(navController: NavController, loanId: String?) {
                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                                     Column { Text("Hari Berlalu", color = GreyText); Spacer(modifier = Modifier.height(6.dp)); Text("$daysPassed Hari") }
                                     Column(horizontalAlignment = Alignment.End) { /* empty for symmetry */ }
+                                }
+
+                                // Show late fee if overdue
+                                if (l.lateFee != null && l.lateFee!! > 0.0) {
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Divider(color = Color.LightGray.copy(alpha = 0.3f))
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                                        Column {
+                                            Text("Denda Keterlambatan", color = Color.Red, fontWeight = FontWeight.SemiBold)
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text("Tarif: Rp 100/jam", color = GreyText, fontSize = 12.sp)
+                                        }
+                                        Column(horizontalAlignment = Alignment.End) {
+                                            Text(
+                                                "Rp ${String.format(Locale.US, "%.2f", l.lateFee)}",
+                                                color = Color.Red,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 16.sp
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }

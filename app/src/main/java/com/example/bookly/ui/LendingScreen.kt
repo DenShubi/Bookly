@@ -135,16 +135,22 @@ private fun SummaryCardsRow(bukuAktif: String = "0", terlambat: String = "0", de
 
 @Composable
 private fun LoanItem(loan: LoansRepository.LoanRow, onClick: () -> Unit) {
-    val fmtDate = SimpleDateFormat("dd MMM yyyy", Locale("id"))
-    val fmtTime = SimpleDateFormat("HH:mm", Locale("id"))
+    // Use WIB timezone for displaying dates
+    val wibTimeZone = TimeZone.getTimeZone("Asia/Jakarta")
+    val fmtDate = SimpleDateFormat("dd MMM yyyy", Locale("id")).apply {
+        timeZone = wibTimeZone
+    }
+    val fmtTime = SimpleDateFormat("HH:mm", Locale("id")).apply {
+        timeZone = wibTimeZone
+    }
     val today = Date()
     val due = loan.returnDeadline ?: today
     val daysRemaining = ((due.time - today.time) / (1000 * 60 * 60 * 24)).toInt()
     // determine if time-of-day is meaningful (non-midnight) in Asia/Jakarta
-    val cal = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("Asia/Jakarta"))
+    val cal = Calendar.getInstance(wibTimeZone)
     cal.time = due
-    val hour = cal.get(java.util.Calendar.HOUR_OF_DAY)
-    val minute = cal.get(java.util.Calendar.MINUTE)
+    val hour = cal.get(Calendar.HOUR_OF_DAY)
+    val minute = cal.get(Calendar.MINUTE)
     val timeStr = if (hour != 0 || minute != 0) fmtTime.format(due) + " WIB" else null
 
     Card(modifier = Modifier
